@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowUpRight,
   Check,
   ChevronLeft,
   ChevronRight,
+  Circle,
+  Diamond,
   Download,
   Eraser,
   FilePlus2,
@@ -10,16 +13,21 @@ import {
   Highlighter,
   Info,
   LoaderCircle,
+  Hexagon,
   LockKeyhole,
   MessageSquareText,
+  Minus,
   MousePointer2,
+  Pentagon,
   PenTool,
   Pencil,
   Plus,
   Redo2,
   ShieldCheck,
   Square,
+  Star,
   Trash2,
+  Triangle,
   Type,
   Undo2,
   Upload,
@@ -30,21 +38,46 @@ import {
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { extractPageTextItems } from './pdfText.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const COLORS = ['#252522', '#7666D8', '#F0795D', '#E6B84A', '#6DAA8B', '#5E9BC8', '#B779A9', '#FFFFFF'];
 const DEFAULT_COLOR = '#7666D8';
 
+const SHAPE_TOOL_IDS = ['shape', 'square', 'circle', 'oval', 'line', 'arrow', 'triangle', 'diamond', 'pentagon', 'hexagon', 'star'];
+const FREEHAND_TOOL_IDS = ['draw', 'pen'];
+const SHAPE_LABELS = {
+  shape: 'Rectangle',
+  square: 'Square',
+  circle: 'Circle',
+  oval: 'Oval',
+  line: 'Line',
+  arrow: 'Arrow',
+  triangle: 'Triangle',
+  diamond: 'Diamond',
+  pentagon: 'Pentagon',
+  hexagon: 'Hexagon',
+  star: 'Star',
+};
+
 const TOOL_OPTIONS = [
   { id: 'select', label: 'Select', hint: 'Move things around', icon: MousePointer2 },
-  { id: 'edit-text', label: 'Replace text', hint: 'Edit selectable PDF text', icon: Type },
   { id: 'text', label: 'Add text', hint: 'Place a new text box', icon: Type },
   { id: 'highlight', label: 'Highlight', hint: 'Drag over a passage', icon: Highlighter },
   { id: 'whiteout', label: 'Whiteout', hint: 'Cover existing content', icon: Eraser },
-  { id: 'draw', label: 'Freehand', hint: 'Sketch on the page', icon: Pencil },
-  { id: 'shape', label: 'Rectangle', hint: 'Draw a simple shape', icon: Square },
+  { id: 'draw', label: 'Pencil', hint: 'Sketch with a pencil', icon: Pencil },
+  { id: 'pen', label: 'Pen', hint: 'Draw with a smooth pen', icon: PenTool },
+  { id: 'shape', label: 'Rectangle', hint: 'Draw a rectangle', icon: Square },
+  { id: 'square', label: 'Square', hint: 'Draw a square', icon: Square },
+  { id: 'circle', label: 'Circle', hint: 'Draw a circle', icon: Circle },
+  { id: 'oval', label: 'Oval', hint: 'Draw an oval', icon: Circle },
+  { id: 'line', label: 'Line', hint: 'Draw a straight line', icon: Minus },
+  { id: 'arrow', label: 'Arrow', hint: 'Draw an arrow', icon: ArrowUpRight },
+  { id: 'triangle', label: 'Triangle', hint: 'Draw a triangle', icon: Triangle },
+  { id: 'diamond', label: 'Diamond', hint: 'Draw a diamond', icon: Diamond },
+  { id: 'pentagon', label: 'Pentagon', hint: 'Draw a pentagon', icon: Pentagon },
+  { id: 'hexagon', label: 'Hexagon', hint: 'Draw a hexagon', icon: Hexagon },
+  { id: 'star', label: 'Star', hint: 'Draw a star', icon: Star },
   { id: 'signature', label: 'Signature', hint: 'Add a written sign-off', icon: PenTool },
   { id: 'note', label: 'Sticky note', hint: 'Leave yourself a note', icon: MessageSquareText },
   { id: 'eraser', label: 'Eraser', hint: 'Remove an annotation', icon: Trash2 },
@@ -52,12 +85,10 @@ const TOOL_OPTIONS = [
 
 const TOOL_CURSORS = {
   select: 'default',
-  'edit-text': 'text',
   text: 'text',
   highlight: 'crosshair',
   whiteout: 'crosshair',
-  draw: 'crosshair',
-  shape: 'crosshair',
+  ...Object.fromEntries([...SHAPE_TOOL_IDS, ...FREEHAND_TOOL_IDS].map((id) => [id, 'crosshair'])),
   signature: 'copy',
   note: 'copy',
   eraser: "url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22m7%2021%2010.5-10.5a2.1%202.1%200%200%200-3-3L4%2018l3%203Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%237667d8%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22m5%2017%204%204M3%2021h14%22%20fill%3D%22none%22%20stroke%3D%22%237667d8%22%20stroke-width%3D%221.8%22%2F%3E%3C%2Fsvg%3E') 4 18, crosshair",
@@ -77,6 +108,84 @@ function withAlpha(hex, alpha) {
 
 function clamp(value, min = 0, max = 1) {
   return Math.min(max, Math.max(min, value));
+}
+
+function polygonVertices(shapeType, x, y, width, height) {
+  const sides = { triangle: 3, diamond: 4, pentagon: 5, hexagon: 6, star: 5 }[shapeType];
+  if (!sides) return [];
+  const isStar = shapeType === 'star';
+  const count = isStar ? sides * 2 : sides;
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  return Array.from({ length: count }, (_, index) => {
+    const radiusScale = isStar && index % 2 ? 0.44 : 1;
+    const angle = -Math.PI / 2 + (index * Math.PI * 2) / count;
+    return {
+      x: centerX + Math.cos(angle) * (width / 2) * radiusScale,
+      y: centerY + Math.sin(angle) * (height / 2) * radiusScale,
+    };
+  });
+}
+
+function ShapeSvg({ shapeType, x, y, w, h, points = [], color, strokeWidth = 2.5, zoom, pageWidth, pageHeight, annotationId, selected = false, interactive = false, draft = false }) {
+  const left = x * 1000;
+  const top = y * 1000;
+  const width = w * 1000;
+  const height = h * 1000;
+  const start = points[0] || { x, y };
+  const end = points[1] || { x: x + w, y: y + h };
+  const markerId = `arrowhead-${annotationId || 'draft'}`;
+  const geometryStyle = { pointerEvents: interactive ? (shapeType === 'line' || shapeType === 'arrow' ? 'stroke' : 'all') : 'none', touchAction: 'none' };
+  const geometryProps = {
+    fill: 'none',
+    stroke: color,
+    strokeWidth: strokeWidth * zoom / 100,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    vectorEffect: 'non-scaling-stroke',
+    style: geometryStyle,
+  };
+  let geometry;
+
+  if (shapeType === 'line' || shapeType === 'arrow') {
+    geometry = <line {...geometryProps} x1={start.x * 1000} y1={start.y * 1000} x2={end.x * 1000} y2={end.y * 1000} markerEnd={shapeType === 'arrow' ? `url(#${markerId})` : undefined} />;
+  } else if (shapeType === 'circle' || shapeType === 'square') {
+    const cssSize = Math.min(width * (pageWidth || 1) / 1000, height * (pageHeight || 1) / 1000);
+    const radiusX = (cssSize / (pageWidth || 1)) * 500;
+    const radiusY = (cssSize / (pageHeight || 1)) * 500;
+    const centerX = left + width / 2;
+    const centerY = top + height / 2;
+    geometry = shapeType === 'circle'
+      ? <ellipse {...geometryProps} cx={centerX} cy={centerY} rx={radiusX} ry={radiusY} />
+      : <rect {...geometryProps} x={centerX - radiusX} y={centerY - radiusY} width={radiusX * 2} height={radiusY * 2} />;
+  } else if (shapeType === 'oval') {
+    geometry = <ellipse {...geometryProps} cx={left + width / 2} cy={top + height / 2} rx={width / 2} ry={height / 2} />;
+  } else if (shapeType === 'triangle' || shapeType === 'diamond' || shapeType === 'pentagon' || shapeType === 'hexagon' || shapeType === 'star') {
+    const vertices = polygonVertices(shapeType, x, y, w, h).map((point) => `${point.x * 1000},${point.y * 1000}`).join(' ');
+    geometry = <polygon {...geometryProps} points={vertices} />;
+  } else {
+    geometry = <rect {...geometryProps} x={left} y={top} width={width} height={height} />;
+  }
+
+  return (
+    <svg
+      className={draft ? 'drawing-draft shape-draft' : 'annotation-shape-svg'}
+      data-annotation-id={annotationId}
+      viewBox="0 0 1000 1000"
+      preserveAspectRatio="none"
+      style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}
+    >
+      {shapeType === 'arrow' && (
+        <defs>
+          <marker id={markerId} markerWidth="5" markerHeight="5" refX="4.5" refY="2.5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L5,2.5 L0,5 z" fill={color} />
+          </marker>
+        </defs>
+      )}
+      {geometry}
+      {selected && <rect className="draw-selection" x={left} y={top} width={width} height={height} style={{ pointerEvents: 'none' }} />}
+    </svg>
+  );
 }
 
 function makeId() {
@@ -296,22 +405,17 @@ function PdfPage({
   currentColor,
   selectedId,
   setSelectedId,
-  setSelectedPdfTextItem,
   addAnnotation,
   commitAnnotations,
   updateAnnotation,
   removeAnnotation,
   onPageSize,
-  onTextItems,
-  onTextLoading,
-  onEditPdfText,
 }) {
   const recordRef = useRef(null);
   const canvasRef = useRef(null);
   const renderTaskRef = useRef(null);
   const [near, setNear] = useState(pageIndex === 0);
   const [pdfPage, setPdfPage] = useState(null);
-  const [textItems, setTextItems] = useState([]);
   const [pageSize, setPageSize] = useState({ width: 612 * zoom / 100, height: 792 * zoom / 100 });
 
   useEffect(() => {
@@ -331,7 +435,6 @@ function PdfPage({
   useEffect(() => {
     let cancelled = false;
     setPdfPage(null);
-    setTextItems([]);
     if (!pdfDocument || !near) return () => { cancelled = true; };
     pdfDocument.getPage(pageIndex + 1).then((page) => {
       if (!cancelled) setPdfPage(page);
@@ -383,31 +486,6 @@ function PdfPage({
     };
   }, [pdfPage, pageIndex, zoom, near]);
 
-  useEffect(() => {
-    if (!pdfPage || tool !== 'edit-text' || !near) {
-      onTextLoading(pageIndex, false);
-      return undefined;
-    }
-    let cancelled = false;
-    onTextLoading(pageIndex, true);
-    extractPageTextItems(pdfPage).then((items) => {
-      if (cancelled) return;
-      setTextItems(items);
-      onTextItems(pageIndex, items);
-      onTextLoading(pageIndex, false);
-    }).catch((error) => {
-      if (cancelled) return;
-      console.warn(`Could not read text on page ${pageIndex + 1}`, error);
-      setTextItems([]);
-      onTextItems(pageIndex, []);
-      onTextLoading(pageIndex, false);
-    });
-    return () => {
-      cancelled = true;
-      onTextLoading(pageIndex, false);
-    };
-  }, [pdfPage, pageIndex, tool, near, onTextItems, onTextLoading]);
-
   return (
     <div className={`document-page-record ${active ? 'active' : ''}`} data-page-index={pageIndex} ref={recordRef}>
       <div className="document-page-caption" style={{ width: pageSize.width }}>
@@ -419,8 +497,6 @@ function PdfPage({
         {near && pdfPage && (
           <AnnotationLayer
             annotations={annotations}
-            pdfTextItems={textItems}
-            onEditPdfText={(item) => onEditPdfText(item, pageIndex)}
             currentPage={pageIndex}
             pageSize={pageSize}
             zoom={zoom}
@@ -428,7 +504,6 @@ function PdfPage({
             currentColor={currentColor}
             selectedId={selectedId}
             setSelectedId={setSelectedId}
-            setSelectedPdfTextItem={setSelectedPdfTextItem}
             addAnnotation={addAnnotation}
             commitAnnotations={commitAnnotations}
             updateAnnotation={updateAnnotation}
@@ -469,21 +544,23 @@ function Palette({ value, onChange, label = 'COLOR' }) {
 
 function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColorChange, onFinish, onDelete, onMore }) {
   const type = annotation.type;
-  const hasText = ['text', 'signature', 'note', 'replacement', 'source-text'].includes(type);
-  const hasFontFormatting = ['text', 'replacement', 'source-text'].includes(type);
-  const hasSize = ['text', 'signature', 'replacement', 'source-text'].includes(type);
-  const hasWidth = ['text', 'signature', 'note', 'replacement', 'source-text'].includes(type);
+  const hasText = ['text', 'signature', 'note'].includes(type);
+  const hasFontFormatting = type === 'text';
+  const hasSize = ['text', 'signature'].includes(type);
+  const hasWidth = ['text', 'signature', 'note'].includes(type);
   const color = annotation.color || currentColor;
   const widthMax = Math.max(5, Math.floor((1 - annotation.x) * 100));
   const widthValue = Math.min(widthMax, Math.max(5, Math.round((annotation.w || 0.4) * 100)));
+  const iconToolId = type === 'shape'
+    ? annotation.shapeType === 'rectangle' ? 'shape' : annotation.shapeType || 'shape'
+    : type;
+  const PropertyIcon = TOOL_OPTIONS.find(({ id }) => id === iconToolId)?.icon || Type;
 
   return (
     <div className="mobile-properties-bar" role="region" aria-label={`${label} properties`}>
       <div className="mobile-properties-main">
         <div className="mobile-property-context">
-          <span className="mobile-property-context-icon">
-            {type === 'highlight' ? <Highlighter size={15} /> : type === 'whiteout' ? <Eraser size={15} /> : type === 'note' ? <MessageSquareText size={15} /> : type === 'draw' ? <Pencil size={15} /> : type === 'shape' ? <Square size={15} /> : <Type size={15} />}
-          </span>
+          <span className="mobile-property-context-icon"><PropertyIcon size={15} /></span>
           <span className="mobile-property-context-copy"><strong>{label}</strong><small>Page {annotation.pageIndex + 1}</small></span>
         </div>
         {hasText && (
@@ -493,7 +570,7 @@ function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColo
             value={annotation.text || ''}
             onChange={(event) => onUpdate({ text: event.target.value })}
             onBlur={onFinish}
-            aria-label={type === 'replacement' || type === 'source-text' ? 'Replacement text' : type === 'note' ? 'Note content' : type === 'signature' ? 'Signature text' : 'Text content'}
+            aria-label={type === 'note' ? 'Note content' : type === 'signature' ? 'Signature text' : 'Text content'}
             placeholder="Type text…"
           />
         )}
@@ -550,10 +627,10 @@ function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColo
           </label>
         )}
 
-        {['shape', 'draw'].includes(type) && (
+        {['shape', 'draw', 'pen'].includes(type) && (
           <label className="mobile-property-range">
-            <span>Stroke <b>{annotation.strokeWidth || 2.5}px</b></span>
-            <input type="range" min="1" max="8" step="0.5" value={annotation.strokeWidth || 2.5} onChange={(event) => onUpdate({ strokeWidth: Number(event.target.value) })} onBlur={onFinish} aria-label="Stroke width" />
+            <span>{['draw', 'pen'].includes(type) ? 'Thickness' : 'Stroke'} <b>{annotation.strokeWidth || 2.5}px</b></span>
+            <input type="range" min="1" max="8" step="0.5" value={annotation.strokeWidth || 2.5} onChange={(event) => onUpdate({ strokeWidth: Number(event.target.value) })} onBlur={onFinish} aria-label={['draw', 'pen'].includes(type) ? 'Drawing thickness' : 'Shape stroke width'} />
           </label>
         )}
 
@@ -576,8 +653,6 @@ function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColo
 
 function AnnotationLayer({
   annotations,
-  pdfTextItems,
-  onEditPdfText,
   currentPage,
   pageSize,
   zoom,
@@ -585,7 +660,6 @@ function AnnotationLayer({
   currentColor,
   selectedId,
   setSelectedId,
-  setSelectedPdfTextItem,
   addAnnotation,
   commitAnnotations,
   updateAnnotation,
@@ -606,7 +680,6 @@ function AnnotationLayer({
   }, []);
 
   const handlePointerDown = (event) => {
-    if (tool !== 'edit-text') setSelectedPdfTextItem(null);
     const point = pointFromEvent(event);
     const resizeTarget = event.target.closest?.('[data-resize-id]');
     const target = event.target.closest?.('[data-annotation-id]');
@@ -626,6 +699,7 @@ function AnnotationLayer({
         startX: point.x,
         originalX: annotation.x,
         originalW: annotation.w,
+        moved: false,
         originalAnnotations: annotations,
       };
       return;
@@ -634,15 +708,6 @@ function AnnotationLayer({
     if (tool === 'eraser' && targetId) {
       event.preventDefault();
       removeAnnotation(targetId);
-      return;
-    }
-
-    if (tool === 'edit-text' && targetId) {
-      const annotation = annotations.find((item) => item.id === targetId && item.type === 'replacement');
-      if (annotation) {
-        setSelectedPdfTextItem(null);
-        setSelectedId(annotation.id);
-      }
       return;
     }
 
@@ -659,6 +724,8 @@ function AnnotationLayer({
         startY: point.y,
         originalX: annotation.x,
         originalY: annotation.y,
+        originalPoints: annotation.points,
+        moved: false,
         originalAnnotations: annotations,
       };
       return;
@@ -694,7 +761,7 @@ function AnnotationLayer({
       return;
     }
 
-    if (['highlight', 'whiteout', 'shape', 'draw'].includes(tool)) {
+    if (['highlight', 'whiteout', ...SHAPE_TOOL_IDS, ...FREEHAND_TOOL_IDS].includes(tool)) {
       event.preventDefault();
       layerRef.current?.setPointerCapture?.(event.pointerId);
       const fresh = {
@@ -714,15 +781,23 @@ function AnnotationLayer({
     const drag = dragRef.current;
     if (drag && drag.pointerId === event.pointerId) {
       const dx = point.x - drag.startX;
+      const dy = drag.mode === 'resize' ? 0 : point.y - drag.startY;
+      if (!drag.moved && Math.hypot(dx, dy) < 0.0015) return;
+      drag.moved = true;
       if (drag.mode === 'resize') {
         const maxWidth = Math.max(0.05, 1 - drag.originalX);
         updateAnnotation(drag.id, { w: clamp(drag.originalW + dx, 0.05, maxWidth) });
       } else {
-        const dy = point.y - drag.startY;
-        updateAnnotation(drag.id, {
-          x: clamp(drag.originalX + dx, -0.2, 0.95),
-          y: clamp(drag.originalY + dy, -0.2, 0.95),
-        });
+        const nextX = clamp(drag.originalX + dx, -0.2, 0.95);
+        const nextY = clamp(drag.originalY + dy, -0.2, 0.95);
+        const patch = { x: nextX, y: nextY };
+        if (Array.isArray(drag.originalPoints)) {
+          patch.points = drag.originalPoints.map((item) => ({
+            x: item.x + nextX - drag.originalX,
+            y: item.y + nextY - drag.originalY,
+          }));
+        }
+        updateAnnotation(drag.id, patch);
       }
       return;
     }
@@ -731,7 +806,7 @@ function AnnotationLayer({
     const next = {
       ...activeDraft,
       current: point,
-      points: activeDraft.type === 'draw' ? [...activeDraft.points, point] : activeDraft.points,
+      points: FREEHAND_TOOL_IDS.includes(activeDraft.type) ? [...activeDraft.points, point] : activeDraft.points,
     };
     draftRef.current = next;
     setDraft(next);
@@ -740,7 +815,7 @@ function AnnotationLayer({
   const handlePointerUp = (event) => {
     const drag = dragRef.current;
     if (drag && drag.pointerId === event.pointerId) {
-      commitAnnotations(drag.originalAnnotations);
+      if (drag.moved) commitAnnotations(drag.originalAnnotations);
       dragRef.current = null;
       return;
     }
@@ -751,20 +826,23 @@ function AnnotationLayer({
     const top = Math.min(start.y, current.y);
     const width = Math.abs(current.x - start.x);
     const height = Math.abs(current.y - start.y);
-    if (type === 'draw' ? points.length > 1 : width > 0.003 || height > 0.003) {
+    const isFreehand = FREEHAND_TOOL_IDS.includes(type);
+    const isShape = SHAPE_TOOL_IDS.includes(type);
+    if (isFreehand ? points.length > 1 : width > 0.003 || height > 0.003) {
       const annotation = {
         id: makeId(),
-        type,
+        type: isShape ? 'shape' : type,
+        shapeType: isShape ? (type === 'shape' ? 'rectangle' : type) : undefined,
         pageIndex: currentPage,
         x: left,
         y: top,
         w: Math.max(width, 0.005),
         h: Math.max(height, type === 'highlight' ? 0.018 : 0.005),
-        points: type === 'draw' ? points : undefined,
+        points: isFreehand ? points : isShape ? [start, current] : undefined,
         color: currentColor,
         size: 22,
         opacity: 0.34,
-        strokeWidth: 2.5,
+        strokeWidth: type === 'pen' ? 3.2 : type === 'draw' ? 2.2 : 2.5,
       };
       addAnnotation(annotation);
       setSelectedId(annotation.id);
@@ -775,7 +853,7 @@ function AnnotationLayer({
 
   const pageAnnotations = annotations.filter((annotation) => annotation.pageIndex === currentPage);
   const draftPath = (points = []) => points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x * 1000} ${point.y * 1000}`).join(' ');
-  const interactive = tool === 'select' || tool === 'eraser' || tool === 'edit-text';
+  const interactive = tool === 'select' || tool === 'eraser';
 
   return (
     <div
@@ -785,7 +863,7 @@ function AnnotationLayer({
         width: pageSize.width,
         height: pageSize.height,
         cursor: TOOL_CURSORS[tool] || 'default',
-        touchAction: ['select', 'edit-text'].includes(tool) ? 'pan-x pan-y' : 'none',
+        touchAction: tool === 'select' ? 'pan-x pan-y' : 'none',
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -793,36 +871,6 @@ function AnnotationLayer({
       onPointerCancel={handlePointerUp}
       role="presentation"
     >
-      {tool === 'edit-text' && pdfTextItems.map((item) => (
-        <div
-          key={`pdf-text-${item.index}`}
-          role="button"
-          tabIndex={0}
-          data-pdf-text-index={item.index}
-          className="pdf-text-hit"
-          style={{
-            left: `${item.x * 100}%`,
-            top: `${item.y * 100}%`,
-            width: `${item.w * 100}%`,
-            height: `${item.h * 100}%`,
-            fontSize: `${item.size * zoom / 100}px`,
-            transform: item.angle ? `rotate(${item.angle}deg)` : undefined,
-          }}
-          aria-label={`Edit PDF text: ${item.text.slice(0, 90)}`}
-          title={`Edit: ${item.text.slice(0, 90)}`}
-          onPointerDown={(event) => {
-            if (event.pointerType !== 'touch') event.preventDefault();
-            event.stopPropagation();
-            onEditPdfText(item);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.preventDefault();
-              onEditPdfText(item);
-            }
-          }}
-        />
-      ))}
       {pageAnnotations.map((annotation) => {
         const isSelected = annotation.id === selectedId;
         const shared = {
@@ -834,17 +882,17 @@ function AnnotationLayer({
             pointerEvents: interactive ? 'auto' : 'none',
           },
         };
-        if (annotation.type === 'draw') {
+        if (FREEHAND_TOOL_IDS.includes(annotation.type)) {
           return (
             <svg
               key={annotation.id}
               data-annotation-id={annotation.id}
-              className={`annotation-item annotation-draw ${isSelected ? 'is-selected' : ''}`}
+              className="annotation-draw-svg"
               viewBox="0 0 1000 1000"
               preserveAspectRatio="none"
               style={{ left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}
             >
-              <path d={draftPath(annotation.points)} fill="none" stroke={annotation.color} strokeWidth={(annotation.strokeWidth || 2.5) * zoom / 100} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" style={{ pointerEvents: interactive ? 'stroke' : 'none' }} />
+              <path d={draftPath(annotation.points)} fill="none" stroke={annotation.color} strokeWidth={(annotation.strokeWidth || 2.5) * zoom / 100} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={annotation.type === 'draw' ? 0.78 : 1} style={{ pointerEvents: interactive ? 'stroke' : 'none', touchAction: 'none' }} />
               {isSelected && <rect className="draw-selection" x={annotation.x * 1000} y={annotation.y * 1000} width={annotation.w * 1000} height={annotation.h * 1000} style={{ pointerEvents: 'none' }} />}
             </svg>
           );
@@ -871,37 +919,23 @@ function AnnotationLayer({
         }
         if (annotation.type === 'shape') {
           return (
-            <div
+            <ShapeSvg
               key={annotation.id}
-              {...shared}
-              className={`${shared.className} annotation-shape`}
-              style={{ ...shared.style, width: `${annotation.w * 100}%`, height: `${annotation.h * 100}%`, borderColor: annotation.color, borderWidth: `${(annotation.strokeWidth || 2.5) * zoom / 100}px` }}
+              annotationId={annotation.id}
+              shapeType={annotation.shapeType || 'rectangle'}
+              x={annotation.x}
+              y={annotation.y}
+              w={annotation.w}
+              h={annotation.h}
+              points={annotation.points}
+              color={annotation.color}
+              strokeWidth={annotation.strokeWidth || 2.5}
+              zoom={zoom}
+              pageWidth={pageSize.width}
+              pageHeight={pageSize.height}
+              selected={isSelected}
+              interactive={interactive}
             />
-          );
-        }
-        if (annotation.type === 'replacement') {
-          return (
-            <div
-              key={annotation.id}
-              {...shared}
-              data-pdf-text-index={annotation.sourceIndex}
-              className={`${shared.className} annotation-replacement`}
-              style={{
-                ...shared.style,
-                width: `${annotation.w * 100}%`,
-                minHeight: `${annotation.h * 100}%`,
-                fontSize: `${(annotation.size || 12) * zoom / 100}px`,
-                color: annotation.color || '#292a27',
-                fontFamily: annotation.fontFamily || 'Arial, sans-serif',
-                fontWeight: annotation.bold ? 700 : 400,
-                fontStyle: annotation.italic ? 'italic' : 'normal',
-                textAlign: annotation.align || 'left',
-                transform: annotation.angle ? `rotate(${annotation.angle}deg)` : undefined,
-              }}
-            >
-              <span>{annotation.text}</span>
-              {isSelected && tool === 'select' && <span className="annotation-resize-handle" data-resize-id={annotation.id} title="Drag to widen text box" />}
-            </div>
           );
         }
         if (annotation.type === 'note') {
@@ -940,12 +974,28 @@ function AnnotationLayer({
         );
       })}
 
-      {draft && draft.type === 'draw' && (
+      {draft && FREEHAND_TOOL_IDS.includes(draft.type) && (
         <svg className="drawing-draft" viewBox="0 0 1000 1000" preserveAspectRatio="none">
-          <path d={draftPath(draft.points)} fill="none" stroke={currentColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <path d={draftPath(draft.points)} fill="none" stroke={currentColor} strokeWidth={(draft.type === 'pen' ? 3.2 : 2.2) * zoom / 100} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={draft.type === 'draw' ? 0.78 : 1} />
         </svg>
       )}
-      {draft && draft.type !== 'draw' && (
+      {draft && SHAPE_TOOL_IDS.includes(draft.type) && (
+        <ShapeSvg
+          shapeType={draft.type === 'shape' ? 'rectangle' : draft.type}
+          x={Math.min(draft.start.x, draft.current.x)}
+          y={Math.min(draft.start.y, draft.current.y)}
+          w={Math.abs(draft.current.x - draft.start.x)}
+          h={Math.abs(draft.current.y - draft.start.y)}
+          points={[draft.start, draft.current]}
+          color={currentColor}
+          strokeWidth={2.5}
+          zoom={zoom}
+          pageWidth={pageSize.width}
+          pageHeight={pageSize.height}
+          draft
+        />
+      )}
+      {draft && !SHAPE_TOOL_IDS.includes(draft.type) && !FREEHAND_TOOL_IDS.includes(draft.type) && (
         <div
           className={`draft-rectangle draft-${draft.type}`}
           style={{
@@ -965,8 +1015,6 @@ function AnnotationLayer({
 function App() {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [pdfBytes, setPdfBytes] = useState(null);
-  const [pdfTextByPage, setPdfTextByPage] = useState({});
-  const [loadingTextPages, setLoadingTextPages] = useState({});
   const [pageSizes, setPageSizes] = useState({});
   const [documentName, setDocumentName] = useState('Fieldnotes — a slower kind of living.pdf');
   const [pageIndex, setPageIndex] = useState(0);
@@ -975,7 +1023,6 @@ function App() {
   const [currentColor, setCurrentColor] = useState(DEFAULT_COLOR);
   const [annotations, setAnnotations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [selectedPdfTextItem, setSelectedPdfTextItem] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -989,39 +1036,27 @@ function App() {
   const toastTimerRef = useRef(null);
   const propertyEditSnapshotRef = useRef(null);
 
-  useEffect(() => {
-    if ((selectedId || selectedPdfTextItem) && typeof window !== 'undefined' && window.innerWidth > 680 && window.innerWidth <= 980) {
-      setInspectorOpen(true);
-    }
-  }, [selectedId, selectedPdfTextItem]);
-
   const pageCount = pdfDocument?.numPages || 0;
   const pageSize = pageSizes[pageIndex] || { width: 612 * zoom / 100, height: 792 * zoom / 100 };
-  const pdfTextItems = pdfTextByPage[pageIndex] || [];
-  const textItemsLoading = Boolean(loadingTextPages[pageIndex]);
-  const storedSelection = annotations.find((item) => item.id === selectedId) || null;
-  const selectedAnnotation = storedSelection || (selectedPdfTextItem ? {
-    ...selectedPdfTextItem,
-    id: null,
-    type: 'source-text',
-    pageIndex: selectedPdfTextItem.pageIndex ?? pageIndex,
-    text: selectedPdfTextItem.text,
-    color: '#292a27',
-  } : null);
+  const selectedAnnotation = annotations.find((item) => item.id === selectedId) || null;
   const activeTool = TOOL_OPTIONS.find((item) => item.id === tool) || TOOL_OPTIONS[0];
   const mobileSelectionLabel = selectedAnnotation
-    ? ({
-      text: 'Text box',
-      replacement: 'Text replacement',
-      'source-text': 'PDF text selected',
-      signature: 'Signature',
-      note: 'Sticky note',
-      highlight: 'Highlight',
-      whiteout: 'Content cover',
-      draw: 'Freehand mark',
-      shape: 'Rectangle',
-    }[selectedAnnotation.type] || 'Selected item')
+    ? selectedAnnotation.type === 'shape'
+      ? SHAPE_LABELS[selectedAnnotation.shapeType] || 'Shape'
+      : ({
+        text: 'Text box',
+        signature: 'Signature',
+        note: 'Sticky note',
+        highlight: 'Highlight',
+        whiteout: 'Content cover',
+        draw: 'Pencil mark',
+        pen: 'Pen mark',
+      }[selectedAnnotation.type] || 'Selected item')
     : null;
+  const selectedToolId = selectedAnnotation?.type === 'shape'
+    ? selectedAnnotation.shapeType === 'rectangle' ? 'shape' : selectedAnnotation.shapeType
+    : selectedAnnotation?.type;
+  const SelectedAnnotationIcon = TOOL_OPTIONS.find(({ id }) => id === selectedToolId)?.icon || Type;
 
   const showToast = useCallback((message) => {
     setToast(message);
@@ -1034,26 +1069,6 @@ function App() {
       const previous = current[index];
       if (previous && Math.abs(previous.width - size.width) < 0.5 && Math.abs(previous.height - size.height) < 0.5) return current;
       return { ...current, [index]: size };
-    });
-  }, []);
-
-  const handleTextItemsLoaded = useCallback((index, items) => {
-    setPdfTextByPage((current) => ({ ...current, [index]: items }));
-    setLoadingTextPages((current) => {
-      if (!current[index]) return current;
-      const next = { ...current };
-      delete next[index];
-      return next;
-    });
-  }, []);
-
-  const handleTextLoading = useCallback((index, loading) => {
-    setLoadingTextPages((current) => {
-      if (loading) return current[index] ? current : { ...current, [index]: true };
-      if (!current[index]) return current;
-      const next = { ...current };
-      delete next[index];
-      return next;
     });
   }, []);
 
@@ -1080,7 +1095,6 @@ function App() {
   const goToPage = useCallback((index) => {
     const target = Math.min(Math.max(index, 0), Math.max(0, pageCount - 1));
     setSelectedId(null);
-    setSelectedPdfTextItem(null);
     setPageIndex(target);
     if (!focusPage(target)) window.requestAnimationFrame(() => focusPage(target));
   }, [pageCount, focusPage]);
@@ -1111,7 +1125,6 @@ function App() {
     if (nextPage !== pageIndex) {
       setPageIndex(nextPage);
       setSelectedId(null);
-      setSelectedPdfTextItem(null);
     }
   }, [pageIndex]);
 
@@ -1167,22 +1180,6 @@ function App() {
   const updateSelectedAnnotation = (patch) => {
     if (!selectedAnnotation) return;
     if (!propertyEditSnapshotRef.current) propertyEditSnapshotRef.current = annotations;
-    if (selectedAnnotation.type === 'source-text') {
-      const replacement = {
-        ...selectedAnnotation,
-        id: makeId(),
-        type: 'replacement',
-        sourceIndex: selectedAnnotation.index,
-        sourceText: selectedAnnotation.text,
-        edited: true,
-        ...patch,
-      };
-      setAnnotations((items) => [...items, replacement]);
-      setSelectedId(replacement.id);
-      setSelectedPdfTextItem(null);
-      setDirty(true);
-      return;
-    }
     updateAnnotation(selectedAnnotation.id, { ...patch, edited: true });
   };
 
@@ -1195,27 +1192,9 @@ function App() {
   const setAnnotationColor = (color) => {
     setCurrentColor(color);
     if (!selectedAnnotation || selectedAnnotation.color === color) return;
-    if (!selectedAnnotation.id) {
-      updateSelectedAnnotation({ color });
-      finishPropertyEdit();
-      return;
-    }
     finishPropertyEdit();
     commitAnnotations(annotations);
     updateAnnotation(selectedAnnotation.id, { color, edited: true });
-  };
-
-  const handleEditPdfText = (textItem, textPageIndex = pageIndex) => {
-    setPageIndex(textPageIndex);
-    const existing = annotations.find((item) => item.type === 'replacement' && item.pageIndex === textPageIndex && item.sourceIndex === textItem.index);
-    if (existing) {
-      setSelectedPdfTextItem(null);
-      setSelectedId(existing.id);
-      return;
-    }
-    // Selecting text updates the inline mobile property rail; the PDF preview stays unchanged until the user edits it.
-    setSelectedId(null);
-    setSelectedPdfTextItem({ ...textItem, pageIndex: textPageIndex });
   };
 
   const handleUndo = () => {
@@ -1225,7 +1204,6 @@ function App() {
     setAnnotations(previous);
     setUndoStack((stack) => stack.slice(0, -1));
     setSelectedId(null);
-    setSelectedPdfTextItem(null);
     setDirty(true);
   };
 
@@ -1236,7 +1214,6 @@ function App() {
     setAnnotations(next);
     setRedoStack((stack) => stack.slice(0, -1));
     setSelectedId(null);
-    setSelectedPdfTextItem(null);
     setDirty(true);
   };
 
@@ -1246,9 +1223,6 @@ function App() {
     setPdfBytes(cleanBytes);
     setPdfDocument(proxy);
     setPageIndex(Math.min(Math.max(nextPage, 0), proxy.numPages - 1));
-    setSelectedPdfTextItem(null);
-    setPdfTextByPage({});
-    setLoadingTextPages({});
     setPageSizes({});
     setDocumentName(nextName || 'Untitled.pdf');
     if (!preserveAnnotations) {
@@ -1404,29 +1378,6 @@ function App() {
         const boxHeight = annotation.h * height;
         const color = colorToRgb(annotation.color || DEFAULT_COLOR);
 
-        if (annotation.type === 'replacement') {
-          const padding = Math.min(1.5, Math.max(0.6, (annotation.size || 12) * 0.05));
-          page.drawRectangle({
-            x: Math.max(0, x - padding),
-            y: Math.max(0, height - top - boxHeight - padding),
-            width: Math.min(width - Math.max(0, x - padding), boxWidth + padding * 2),
-            height: boxHeight + padding * 2,
-            color: colorToRgb('#FFFFFF'),
-          });
-          const replacementFont = chooseFont(annotation);
-          const size = annotation.size || 12;
-          drawWrappedText(page, annotation.text || '', {
-            x,
-            y: height - top - size * 0.82,
-            maxWidth: Math.max(size * 0.65, boxWidth),
-            font: replacementFont,
-            size,
-            lineHeight: size * 1.18,
-            color,
-            align: annotation.align || 'left',
-          });
-          return;
-        }
         if (annotation.type === 'whiteout') {
           page.drawRectangle({
             x,
@@ -1449,17 +1400,67 @@ function App() {
           return;
         }
         if (annotation.type === 'shape') {
-          page.drawRectangle({
-            x,
-            y: height - top - boxHeight,
-            width: boxWidth,
-            height: boxHeight,
-            borderColor: color,
-            borderWidth: annotation.strokeWidth || 2.5,
-          });
+          const shapeType = annotation.shapeType || 'rectangle';
+          const strokeWidth = annotation.strokeWidth || 2.5;
+          const bottom = height - top - boxHeight;
+          if (shapeType === 'line' || shapeType === 'arrow') {
+            const [first = { x: annotation.x, y: annotation.y }, second = { x: annotation.x + annotation.w, y: annotation.y + annotation.h }] = annotation.points || [];
+            const start = { x: first.x * width, y: height - first.y * height };
+            const end = { x: second.x * width, y: height - second.y * height };
+            page.drawLine({ start, end, thickness: strokeWidth, color, lineCap: 'Round' });
+            if (shapeType === 'arrow') {
+              const angle = Math.atan2(end.y - start.y, end.x - start.x);
+              const headLength = Math.max(7, strokeWidth * 4);
+              [-1, 1].forEach((side) => {
+                const sideAngle = angle + Math.PI + side * Math.PI / 6;
+                page.drawLine({
+                  start: end,
+                  end: { x: end.x + headLength * Math.cos(sideAngle), y: end.y + headLength * Math.sin(sideAngle) },
+                  thickness: strokeWidth,
+                  color,
+                  lineCap: 'Round',
+                });
+              });
+            }
+            return;
+          }
+          if (shapeType === 'circle' || shapeType === 'oval' || shapeType === 'square') {
+            let shapeX = x;
+            let shapeY = bottom;
+            let shapeWidth = boxWidth;
+            let shapeHeight = boxHeight;
+            if (shapeType === 'circle' || shapeType === 'square') {
+              const size = Math.min(boxWidth, boxHeight);
+              shapeX += (boxWidth - size) / 2;
+              shapeY += (boxHeight - size) / 2;
+              shapeWidth = size;
+              shapeHeight = size;
+            }
+            if (shapeType === 'square') {
+              page.drawRectangle({ x: shapeX, y: shapeY, width: shapeWidth, height: shapeHeight, borderColor: color, borderWidth: strokeWidth });
+            } else {
+              page.drawEllipse({ x: shapeX, y: shapeY, width: shapeWidth, height: shapeHeight, borderColor: color, borderWidth: strokeWidth });
+            }
+            return;
+          }
+          const vertices = polygonVertices(shapeType, annotation.x, annotation.y, annotation.w, annotation.h);
+          if (vertices.length > 1) {
+            vertices.forEach((vertex, index) => {
+              const next = vertices[(index + 1) % vertices.length];
+              page.drawLine({
+                start: { x: vertex.x * width, y: height - vertex.y * height },
+                end: { x: next.x * width, y: height - next.y * height },
+                thickness: strokeWidth,
+                color,
+                lineCap: 'Round',
+              });
+            });
+          } else {
+            page.drawRectangle({ x, y: bottom, width: boxWidth, height: boxHeight, borderColor: color, borderWidth: strokeWidth });
+          }
           return;
         }
-        if (annotation.type === 'draw') {
+        if (FREEHAND_TOOL_IDS.includes(annotation.type)) {
           const points = annotation.points || [];
           for (let index = 1; index < points.length; index += 1) {
             const start = points[index - 1];
@@ -1469,7 +1470,7 @@ function App() {
               end: { x: end.x * width, y: height - end.y * height },
               thickness: annotation.strokeWidth || 2.5,
               color,
-              opacity: 1,
+              opacity: annotation.type === 'draw' ? 0.78 : 1,
               lineCap: 'Round',
             });
           }
@@ -1559,10 +1560,8 @@ function App() {
         removeAnnotation(selectedId);
       }
       if (!editingText && event.key === 'Escape') setSelectedId(null);
-      if (!editingText && ['v', 'e', 't', 'h', 'd', 'r'].includes(event.key.toLowerCase())) {
-        const shortcutMap = { v: 'select', e: 'edit-text', t: 'text', h: 'highlight', d: 'draw', r: 'shape' };
-        setTool(shortcutMap[event.key.toLowerCase()]);
-      }
+      const shortcuts = { v: 'select', e: 'eraser', t: 'text', h: 'highlight', d: 'draw', p: 'pen', l: 'line', a: 'arrow', r: 'shape', c: 'circle' };
+      if (!editingText && shortcuts[event.key.toLowerCase()]) setTool(shortcuts[event.key.toLowerCase()]);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1704,7 +1703,7 @@ function App() {
                 </button>
               </div>
               <span className="toolbar-divider" />
-              <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{activeTool.label}</span><span className="tool-caption-hint">{tool === 'select' ? 'Click an item to select it' : tool === 'edit-text' ? 'Click existing text to replace it' : ['highlight', 'whiteout', 'shape', 'draw'].includes(tool) ? 'Click and drag on the page' : 'Click to place on the page'}</span></div>
+              <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{activeTool.label}</span><span className="tool-caption-hint">{tool === 'select' ? 'Click an item to select it' : ['highlight', 'whiteout', ...SHAPE_TOOL_IDS, ...FREEHAND_TOOL_IDS].includes(tool) ? 'Click and drag on the page' : 'Click to place on the page'}</span></div>
             </div>
             <div className="canvas-toolbar-right">
               <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom - 10)} disabled={zoom <= 40} aria-label="Zoom out" title="Zoom out">
@@ -1743,15 +1742,11 @@ function App() {
                       currentColor={currentColor}
                       selectedId={selectedId}
                       setSelectedId={setSelectedId}
-                      setSelectedPdfTextItem={setSelectedPdfTextItem}
                       addAnnotation={addAnnotation}
                       commitAnnotations={commitAnnotations}
                       updateAnnotation={updateAnnotation}
                       removeAnnotation={removeAnnotation}
                       onPageSize={updatePageSize}
-                      onTextItems={handleTextItemsLoaded}
-                      onTextLoading={handleTextLoading}
-                      onEditPdfText={handleEditPdfText}
                     />
                   ))}
                 </div>
@@ -1802,19 +1797,17 @@ function App() {
             {selectedAnnotation ? (
               <>
                 <div className="selection-card">
-                  <div className={`selection-icon selection-${selectedAnnotation.type}`}>
-                    {selectedAnnotation.type === 'text' || selectedAnnotation.type === 'source-text' || selectedAnnotation.type === 'replacement' ? <Type size={17} /> : selectedAnnotation.type === 'highlight' ? <Highlighter size={17} /> : selectedAnnotation.type === 'whiteout' ? <Eraser size={17} /> : selectedAnnotation.type === 'draw' ? <Pencil size={17} /> : selectedAnnotation.type === 'shape' ? <Square size={17} /> : selectedAnnotation.type === 'signature' ? <PenTool size={17} /> : selectedAnnotation.type === 'eraser' ? <Trash2 size={17} /> : <MessageSquareText size={17} />}
-                  </div>
-                  <div><strong>{selectedAnnotation.type === 'note' ? 'Sticky note' : selectedAnnotation.type === 'text' ? 'Text box' : selectedAnnotation.type === 'source-text' ? 'Selected PDF text' : selectedAnnotation.type === 'replacement' ? 'PDF text replacement' : selectedAnnotation.type === 'signature' ? 'Signature' : selectedAnnotation.type === 'draw' ? 'Freehand mark' : selectedAnnotation.type === 'highlight' ? 'Highlight' : selectedAnnotation.type === 'whiteout' ? 'Content cover' : 'Rectangle'}</strong><span>Page {selectedAnnotation.pageIndex + 1}</span></div>
-                  {selectedAnnotation.id && <button className="mini-delete" type="button" onClick={() => removeAnnotation(selectedAnnotation.id)} title="Delete item" aria-label="Delete selected item"><Trash2 size={15} /></button>}
+                  <div className={`selection-icon selection-${selectedAnnotation.type}`}><SelectedAnnotationIcon size={17} /></div>
+                  <div><strong>{mobileSelectionLabel}</strong><span>Page {selectedAnnotation.pageIndex + 1}</span></div>
+                  <button className="mini-delete" type="button" onClick={() => removeAnnotation(selectedAnnotation.id)} title="Delete item" aria-label="Delete selected item"><Trash2 size={15} /></button>
                 </div>
 
-                {['text', 'signature', 'note', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
+                {['text', 'signature', 'note'].includes(selectedAnnotation.type) && (
                   <div className="property-field text-property-field">
-                    <label htmlFor="annotation-copy">{selectedAnnotation.type === 'signature' ? 'SIGNATURE' : selectedAnnotation.type === 'note' ? 'NOTE CONTENT' : selectedAnnotation.type === 'replacement' || selectedAnnotation.type === 'source-text' ? 'REPLACEMENT TEXT' : 'TEXT CONTENT'}</label>
+                    <label htmlFor="annotation-copy">{selectedAnnotation.type === 'signature' ? 'SIGNATURE' : selectedAnnotation.type === 'note' ? 'NOTE CONTENT' : 'TEXT CONTENT'}</label>
                     <textarea
                       id="annotation-copy"
-                      rows={selectedAnnotation.type === 'note' || selectedAnnotation.type === 'replacement' || selectedAnnotation.type === 'source-text' ? 4 : 3}
+                      rows={selectedAnnotation.type === 'note' ? 4 : 3}
                       value={selectedAnnotation.text || ''}
                       onChange={(event) => updateSelectedAnnotation({ text: event.target.value })}
                       onBlur={finishPropertyEdit}
@@ -1824,7 +1817,7 @@ function App() {
                   </div>
                 )}
 
-                {['text', 'signature', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
+                {['text', 'signature'].includes(selectedAnnotation.type) && (
                   <div className="property-field">
                     <div className="slider-heading"><label htmlFor="text-size">SIZE</label><span>{selectedAnnotation.size || 22} pt</span></div>
                     <input id="text-size" className="range-input" type="range" min="6" max="72" step="1" value={selectedAnnotation.size || 22} onChange={(event) => updateSelectedAnnotation({ size: Number(event.target.value) })} onBlur={finishPropertyEdit} />
@@ -1832,7 +1825,7 @@ function App() {
                   </div>
                 )}
 
-                {['text', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
+                {selectedAnnotation.type === 'text' && (
                   <div className="font-formatting-section">
                     <div className="inspector-section-title">FONT FORMATTING</div>
                     <label className="format-label" htmlFor="font-family">FONT FAMILY</label>
@@ -1861,7 +1854,7 @@ function App() {
                   </div>
                 )}
 
-                {['text', 'signature', 'note', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
+                {['text', 'signature', 'note'].includes(selectedAnnotation.type) && (
                   <div className="property-field">
                     <div className="slider-heading"><label htmlFor="text-box-width">BOX WIDTH</label><span>{Math.round(selectedAnnotation.w * 100)}% page</span></div>
                     <input
@@ -1888,14 +1881,14 @@ function App() {
                   </div>
                 )}
 
-                {['shape', 'draw'].includes(selectedAnnotation.type) && (
+                {['shape', 'draw', 'pen'].includes(selectedAnnotation.type) && (
                   <div className="property-field">
-                    <div className="slider-heading"><label htmlFor="line-weight">LINE WEIGHT</label><span>{selectedAnnotation.strokeWidth || 2.5} px</span></div>
+                    <div className="slider-heading"><label htmlFor="line-weight">{['draw', 'pen'].includes(selectedAnnotation.type) ? 'THICKNESS' : 'LINE WEIGHT'}</label><span>{selectedAnnotation.strokeWidth || 2.5} px</span></div>
                     <input id="line-weight" className="range-input" type="range" min="1" max="8" step="0.5" value={selectedAnnotation.strokeWidth || 2.5} onChange={(event) => updateSelectedAnnotation({ strokeWidth: Number(event.target.value) })} onBlur={finishPropertyEdit} />
                   </div>
                 )}
 
-                <div className="inspector-tip"><Info size={15} /><span>{selectedAnnotation.type === 'whiteout' ? 'This masks the original page visually. Add a text box on top to replace it in the downloaded copy.' : selectedAnnotation.type === 'source-text' ? 'Selection only—nothing changes on the page until you edit the text. Use Box Width to control how your replacement wraps.' : selectedAnnotation.type === 'replacement' ? 'The original run is covered and new text is drawn. Widen the box to control wrapping. This is not secure redaction.' : 'Drag the item on the page to reposition it. It will be included in your downloaded PDF.'}</span></div>
+                <div className="inspector-tip"><Info size={15} /><span>{selectedAnnotation.type === 'whiteout' ? 'This covers page content visually; it does not remove underlying PDF data.' : 'Drag the item on the page to reposition it. It will be included in your downloaded PDF.'}</span></div>
               </>
             ) : (
               <>
@@ -1903,16 +1896,6 @@ function App() {
                   <div className="page-summary-paper"><FileText size={20} strokeWidth={1.5} /><span>{String(pageIndex + 1).padStart(2, '0')}</span></div>
                   <div className="page-summary-copy"><strong>Page {String(pageIndex + 1).padStart(2, '0')}</strong><span>{pageInfo}</span><small>{pageCount} {pageCount === 1 ? 'page' : 'pages'} in this document</small></div>
                 </div>
-
-                {tool === 'edit-text' && (
-                  <div className={`text-edit-status ${!pdfTextItems.length && !textItemsLoading ? 'empty' : ''}`}>
-                    <Type size={16} />
-                    <span>
-                      <strong>{textItemsLoading ? 'Reading page text…' : pdfTextItems.length ? `${pdfTextItems.length} text runs found` : 'No selectable text found'}</strong>
-                      <small>{textItemsLoading ? 'Loading searchable text from this page.' : pdfTextItems.length ? 'Click a text run on the page to edit it.' : 'Scanned pages need OCR before their text can be edited.'}</small>
-                    </span>
-                  </div>
-                )}
 
                 <Palette value={currentColor} onChange={setAnnotationColor} label="QUICK COLOR" />
 

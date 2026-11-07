@@ -1,9 +1,13 @@
 # Lal Construction MEP Document Editor
 
-A single-page, browser-based PDF editor for Lal Construction, built with React, Vite, PDF.js, and pdf-lib. Files are opened and edited locally in the browser; there is no upload API or backend required. Selectable PDF text runs can be visually replaced with a white patch and new text. The original text remains underneath the patch, so this is not secure redaction; scanned PDFs need OCR before their text can be edited.
+A browser-based PDF editor for Lal Construction, built with React, Vite, PDF.js, and pdf-lib. PDFs are opened and edited locally in the browser; no upload API or backend is required. The editor adds annotation overlays to the PDF. Whiteout covers page content visually but does not securely remove underlying PDF data.
 
 ## Run locally
 
+```bash
+npm install
+npm run dev
+```
 
 Vite prints the local preview URL when it is ready.
 
@@ -20,10 +24,12 @@ This is a static Vite app and fits Vercel's free Hobby plan:
 ## Included editor features
 
 - Open a PDF from disk or drag and drop it into the editor.
-- Scroll vertically through the full document, with lazy page and thumbnail rendering, page navigation, zoom controls, and fit-to-page.
-- Select and visually replace extractable text runs in uploaded PDFs (clicking only selects; original layout stays unchanged until you type), with adjustable text-box width; add text and typed signatures, highlight, draw, add rectangles and sticky notes, cover content with whiteout, then move or erase annotations.
-- Format added and replacement text with font family, bold, italic, and alignment controls; change annotation colors, text size, highlight opacity, and stroke weight.
+- Scroll through multipage documents with lazy page and thumbnail rendering, page navigation, zoom controls, and fit-to-page.
+- Add text boxes and typed signatures; highlight or cover content; create sticky notes; and select, move, resize, or erase annotations.
+- Draw with separate Pencil and Pen tools, each with adjustable thickness and color.
+- Add rectangles, squares, circles, ovals, lines, arrows, triangles, diamonds, pentagons, hexagons, and stars with adjustable stroke weight and color.
+- Format added text with font family, bold, italic, alignment, size, width, and color controls. Adjust highlight opacity and annotation colors.
 - Add, duplicate, and remove pages.
-- Use a mobile tool dock with text labels, an inline properties rail for selected items, a page-details bar when nothing is selected, and swipe-to-pan gestures on the page canvas.
+- Use the mobile tool dock with text labels, an inline properties rail above the dock, page details when nothing is selected, and swipe-to-pan gestures on the page canvas.
 - Undo and redo annotation changes; download a new PDF with edits included.
 - A three-page sample document is generated locally on first load so the editor is ready to explore.

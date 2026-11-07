@@ -183,11 +183,9 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 .annotation-signature { font-family: 'Brush Script MT', 'Segoe Script', 'URW Chancery L', cursive; font-style: italic; font-weight: 500; letter-spacing: -.5px; }
 .annotation-highlight { border-radius: 2px; mix-blend-mode: multiply; }
 .annotation-whiteout { background: #fff; }
-.pdf-text-hit { position: absolute; z-index: 3; min-width: 4px; min-height: 8px; padding: 0; border: 1px solid transparent; border-radius: 2px; background: transparent; cursor: text; }
-.pdf-text-hit:hover, .pdf-text-hit:focus-visible { border-color: rgba(105, 87, 205, .72); background: rgba(118, 103, 216, .13); outline: none; }
-.annotation-replacement { z-index: 2; padding: 0 2px; background: #fff; box-shadow: 0 0 0 1px #fff; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.08; text-shadow: none; }
+.annotation-draw-svg { position: absolute; inset: 0; display: block; pointer-events: none; overflow: visible; }
+.annotation-shape-svg { overflow: visible; }
 .annotation-resize-handle { position: absolute; z-index: 5; top: 50%; right: -7px; width: 14px; height: 14px; transform: translateY(-50%); border: 2px solid #fff; border-radius: 50%; background: #6e60cc; box-shadow: 0 1px 4px rgba(45, 38, 111, .35); cursor: ew-resize; touch-action: none; }
-.annotation-shape { border-style: solid; background: transparent; }
 .annotation-note { min-height: 42px; padding: 9px 9px 8px 13px; border-left: 3px solid; border-radius: 2px 5px 5px 2px; background: #fff5d7; color: #49473f; box-shadow: 0 2px 5px rgba(39, 36, 28, .11); line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
 .note-dot { width: 5px; height: 5px; position: absolute; left: 5px; top: 11px; border-radius: 50%; }
 .annotation-item.is-selected:not(.annotation-highlight) { outline: 1.5px dashed #7869d7; outline-offset: 2px; }
@@ -195,7 +193,6 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 .draw-selection { fill: transparent; stroke: #7869d7; stroke-width: 4; stroke-dasharray: 12 9; vector-effect: non-scaling-stroke; }
 .drawing-draft { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .draft-rectangle { position: absolute; pointer-events: none; border: 1px dashed; }
-.draft-shape { border-style: solid; }
 .draft-highlight { border: 0; border-radius: 2px; }
 .draft-whiteout { border-style: solid; }
 .loading-document { min-height: 230px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; color: #88867e; font-size: 12px; }
@@ -224,14 +221,6 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 .page-summary-copy strong { color: #45453f; font-size: 11px; font-weight: 700; }
 .page-summary-copy span { color: #77766f; font-size: 9px; }
 .page-summary-copy small { color: #aaa8a1; font-size: 8.5px; }
-.text-edit-status { display: flex; align-items: flex-start; gap: 9px; margin: -7px 0 16px; padding: 11px 10px; border: 1px solid #e4e0f7; border-radius: 9px; color: #6e60c7; background: #f5f3fd; }
-.text-edit-status > svg { flex: 0 0 16px; margin-top: 1px; }
-.text-edit-status > span { display: flex; flex-direction: column; gap: 4px; }
-.text-edit-status strong { color: #5a4caf; font-size: 10px; font-weight: 750; }
-.text-edit-status small { color: #8179ae; font-size: 9px; line-height: 1.45; }
-.text-edit-status.empty { color: #9b7f4d; border-color: #efe6d4; background: #fcf8ef; }
-.text-edit-status.empty strong { color: #876d43; }
-.text-edit-status.empty small { color: #a18e6c; }
 .inspector-section-title { margin: 2px 0 10px; color: #99978f; font-size: 8px; font-weight: 750; letter-spacing: 1px; }
 .page-action-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 19px; }
 .page-action-button { min-height: 55px; display: flex; align-items: center; gap: 9px; width: 100%; padding: 7px 8px; border: 1px solid #efede8; border-radius: 9px; background: #fff; text-align: left; cursor: pointer; transition: background .15s, border .15s; }
@@ -357,26 +346,26 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
   .mobile-page-details-copy strong { overflow: hidden; color: #464640; font-size: 11px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-page-details-copy small { overflow: hidden; color: #929087; font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-page-details-action { height: 30px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid #e9e7e2; border-radius: 7px; color: #7165c3; background: #fff; font-size: 10px; font-weight: 650; white-space: nowrap; }
-  .mobile-properties-bar { height: 88px; flex: 0 0 88px; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 6px 9px; border-top: 1px solid #e9e7e2; background: #fff; }
-  .mobile-properties-main { min-width: 0; height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 6px; }
+  .mobile-properties-bar { height: 96px; flex: 0 0 96px; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 6px 9px; border-top: 1px solid #e9e7e2; background: #fff; }
+  .mobile-properties-main { min-width: 0; height: 38px; flex: 0 0 38px; display: flex; align-items: center; gap: 6px; }
   .mobile-property-context { min-width: 0; max-width: 112px; flex: 0 1 auto; display: flex; align-items: center; gap: 5px; }
   .mobile-property-context-icon { width: 27px; height: 27px; flex: 0 0 27px; display: grid; place-items: center; border-radius: 7px; color: #6254bd; background: #f0eefb; }
   .mobile-property-context-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .mobile-property-context-copy strong, .mobile-property-context-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .mobile-property-context-copy strong { color: #4a4944; font-size: 9px; font-weight: 700; }
-  .mobile-property-context-copy small { color: #98968f; font-size: 8px; }
-  .mobile-property-text-input { min-width: 70px; width: 0; height: 34px; flex: 1 1 auto; resize: none; overflow-x: auto; overflow-y: hidden; white-space: pre; padding: 7px 8px; border: 1px solid #e7e5df; border-radius: 7px; color: #45443f; background: #fbfaf8; font-size: 11px; line-height: 18px; }
+  .mobile-property-context-copy strong { color: #4a4944; font-size: 10px; font-weight: 700; }
+  .mobile-property-context-copy small { color: #98968f; font-size: 9px; }
+  .mobile-property-text-input { min-width: 70px; width: 0; height: 36px; flex: 1 1 auto; resize: none; overflow-x: auto; overflow-y: hidden; white-space: pre; padding: 7px 8px; border: 1px solid #e7e5df; border-radius: 7px; color: #45443f; background: #fbfaf8; font-size: 11px; line-height: 18px; }
   .mobile-property-icon-button { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border: 1px solid #e8e6e0; border-radius: 7px; color: #77756e; background: #fff; }
   .mobile-property-icon-button:hover { color: #6254bd; background: #f7f6fc; }
   .mobile-property-delete { color: #bd6b5d; }
-  .mobile-properties-controls { min-width: 0; height: 34px; flex: 0 0 34px; display: flex; align-items: center; gap: 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; touch-action: pan-x; }
+  .mobile-properties-controls { min-width: 0; height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; touch-action: pan-x; }
   .mobile-property-font { width: 100px; height: 29px; flex: 0 0 100px; padding: 0 7px; border: 1px solid #e7e5df; border-radius: 6px; color: #4b4a45; background: #fff; font-size: 10px; }
   .mobile-property-toggle-group, .mobile-property-align-group { height: 28px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid #e8e6e0; border-radius: 7px; background: #f7f6f3; }
   .mobile-property-toggle-group button, .mobile-property-align-group button { width: 26px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; color: #68665f; background: transparent; font-size: 10px; font-weight: 700; }
   .mobile-property-toggle-group button.active, .mobile-property-align-group button.active { color: #5f51ba; background: #fff; box-shadow: 0 1px 3px rgba(36,34,29,.1); }
-  .mobile-property-range { width: 125px; height: 30px; flex: 0 0 125px; display: flex; flex-direction: column; justify-content: center; gap: 2px; color: #77756f; font-size: 8px; white-space: nowrap; }
+  .mobile-property-range { width: 125px; height: 32px; flex: 0 0 125px; display: flex; flex-direction: column; justify-content: center; gap: 2px; color: #77756f; font-size: 9px; white-space: nowrap; }
   .mobile-property-range span { display: flex; justify-content: space-between; gap: 4px; }
-  .mobile-property-range b { color: #6254bd; font-size: 8px; font-weight: 700; }
+  .mobile-property-range b { color: #6254bd; font-size: 9px; font-weight: 700; }
   .mobile-property-range input { width: 100%; height: 4px; margin: 0; appearance: none; border-radius: 4px; background: #ded9f7; }
   .mobile-property-range input::-webkit-slider-thumb { width: 12px; height: 12px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #7667d8; box-shadow: 0 0 0 1px #8d80db; }
   .mobile-property-range input::-moz-range-thumb { width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #7667d8; box-shadow: 0 0 0 1px #8d80db; }
@@ -441,8 +430,6 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 .page-summary-copy strong { font-size: 12px; }
 .page-summary-copy span { font-size: 10px; }
 .page-summary-copy small { font-size: 9.5px; }
-.text-edit-status strong { font-size: 11px; }
-.text-edit-status small { font-size: 10px; }
 .page-action-button strong { font-size: 10.5px; }
 .page-action-button small { font-size: 9px; }
 .inspector-note-card strong { font-size: 10px; }
