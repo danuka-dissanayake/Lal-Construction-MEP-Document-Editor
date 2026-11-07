@@ -4,10 +4,6 @@ A single-page, browser-based PDF editor for Lal Construction, built with React, 
 
 ## Run locally
 
-```bash
-npm install
-npm run dev
-```
 
 Vite prints the local preview URL when it is ready.
 
