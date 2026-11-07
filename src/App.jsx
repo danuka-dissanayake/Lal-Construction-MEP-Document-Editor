@@ -870,12 +870,18 @@ function App() {
   const [dirty, setDirty] = useState(false);
   const [toast, setToast] = useState('');
   const [isDraggingFile, setIsDraggingFile] = useState(false);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const fileInputRef = useRef(null);
   const pageStageRef = useRef(null);
   const pendingPageScrollRef = useRef(null);
   const toastTimerRef = useRef(null);
   const propertyEditSnapshotRef = useRef(null);
+
+  useEffect(() => {
+    if ((selectedId || selectedPdfTextItem) && typeof window !== 'undefined' && window.innerWidth <= 980) {
+      setInspectorOpen(true);
+    }
+  }, [selectedId, selectedPdfTextItem]);
 
   const pageCount = pdfDocument?.numPages || 0;
   const pageSize = pageSizes[pageIndex] || { width: 612 * zoom / 100, height: 792 * zoom / 100 };
@@ -891,6 +897,19 @@ function App() {
     color: '#292a27',
   } : null);
   const activeTool = TOOL_OPTIONS.find((item) => item.id === tool) || TOOL_OPTIONS[0];
+  const mobileSelectionLabel = selectedAnnotation
+    ? ({
+      text: 'Text box',
+      replacement: 'Text replacement',
+      'source-text': 'PDF text selected',
+      signature: 'Signature',
+      note: 'Sticky note',
+      highlight: 'Highlight',
+      whiteout: 'Content cover',
+      draw: 'Freehand mark',
+      shape: 'Rectangle',
+    }[selectedAnnotation.type] || 'Selected item')
+    : null;
 
   const showToast = useCallback((message) => {
     setToast(message);
@@ -1633,14 +1652,36 @@ function App() {
               <span>Scroll to move through pages · Drop a PDF anywhere to open it</span>
             </div>
           </div>
-          <div className="mobile-tool-dock" aria-label="PDF editing tools">
+          {pdfDocument && (
+            <div className="mobile-page-details-bar">
+              <span className={`mobile-page-details-icon ${selectedAnnotation ? 'is-selection' : ''}`}>
+                {selectedAnnotation ? (
+                  selectedAnnotation.type === 'highlight' ? <Highlighter size={16} />
+                    : selectedAnnotation.type === 'whiteout' ? <Eraser size={16} />
+                      : selectedAnnotation.type === 'note' ? <MessageSquareText size={16} />
+                        : selectedAnnotation.type === 'draw' ? <Pencil size={16} />
+                          : selectedAnnotation.type === 'shape' ? <Square size={16} />
+                            : selectedAnnotation.type === 'signature' ? <PenTool size={16} />
+                              : <Type size={16} />
+                ) : <FileText size={17} />}
+              </span>
+              <span className="mobile-page-details-copy">
+                <strong>{selectedAnnotation ? mobileSelectionLabel : `Page ${String(pageIndex + 1).padStart(2, '0')} / ${String(pageCount).padStart(2, '0')}`}</strong>
+                <small>{selectedAnnotation ? `Page ${selectedAnnotation.pageIndex + 1} · Selected item` : `${pageInfo} · ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`}</small>
+              </span>
+              <button type="button" className="mobile-page-details-action" onClick={() => setInspectorOpen(true)} aria-label={selectedAnnotation ? 'Open selected item properties' : 'Open page details'} title={selectedAnnotation ? 'Open properties' : 'Open page details'}>
+                <Info size={15} /><span>{selectedAnnotation ? 'Edit' : 'Details'}</span>
+              </button>
+            </div>
+          )}
+          <nav className="mobile-tool-dock" aria-label="PDF editing tools">
             {TOOL_OPTIONS.map(({ id, label, icon: Icon }) => (
-              <button type="button" key={id} className={tool === id ? 'active' : ''} onClick={() => setTool(id)} aria-label={label} title={label}>
-                <Icon size={17} />
+              <button type="button" key={id} className={tool === id ? 'active' : ''} onClick={() => setTool(id)} aria-label={label} aria-pressed={tool === id} title={label}>
+                <Icon size={16} /><span className="mobile-tool-label">{label}</span>
               </button>
             ))}
-            <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Open PDF" title="Open PDF"><Upload size={17} /></button>
-          </div>
+            <button type="button" onClick={() => fileInputRef.current?.click()} aria-label="Open PDF" title="Open PDF"><Upload size={16} /><span className="mobile-tool-label">Open PDF</span></button>
+          </nav>
         </main>
 
         <aside className={`inspector-sidebar ${inspectorOpen ? 'inspector-open' : ''}`}>
