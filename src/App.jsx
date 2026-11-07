@@ -127,7 +127,7 @@ function polygonVertices(shapeType, x, y, width, height) {
   });
 }
 
-function ShapeSvg({ shapeType, x, y, w, h, points = [], color, strokeWidth = 2.5, zoom, pageWidth, pageHeight, annotationId, selected = false, interactive = false, draft = false }) {
+function ShapeSvg({ shapeType, x, y, w, h, points = [], color, strokeWidth = 2.5, zoom, pageWidth, pageHeight, annotationId, interactive = false, draft = false }) {
   const left = x * 1000;
   const top = y * 1000;
   const width = w * 1000;
@@ -183,7 +183,6 @@ function ShapeSvg({ shapeType, x, y, w, h, points = [], color, strokeWidth = 2.5
         </defs>
       )}
       {geometry}
-      {selected && <rect className="draw-selection" x={left} y={top} width={width} height={height} style={{ pointerEvents: 'none' }} />}
     </svg>
   );
 }
@@ -893,7 +892,6 @@ function AnnotationLayer({
               style={{ left: 0, top: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none' }}
             >
               <path d={draftPath(annotation.points)} fill="none" stroke={annotation.color} strokeWidth={(annotation.strokeWidth || 2.5) * zoom / 100} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity={annotation.type === 'draw' ? 0.78 : 1} style={{ pointerEvents: interactive ? 'stroke' : 'none', touchAction: 'none' }} />
-              {isSelected && <rect className="draw-selection" x={annotation.x * 1000} y={annotation.y * 1000} width={annotation.w * 1000} height={annotation.h * 1000} style={{ pointerEvents: 'none' }} />}
             </svg>
           );
         }
@@ -933,7 +931,6 @@ function AnnotationLayer({
               zoom={zoom}
               pageWidth={pageSize.width}
               pageHeight={pageSize.height}
-              selected={isSelected}
               interactive={interactive}
             />
           );
