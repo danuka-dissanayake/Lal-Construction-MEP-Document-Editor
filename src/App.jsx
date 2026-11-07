@@ -467,6 +467,113 @@ function Palette({ value, onChange, label = 'COLOR' }) {
   );
 }
 
+function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColorChange, onFinish, onDelete, onMore }) {
+  const type = annotation.type;
+  const hasText = ['text', 'signature', 'note', 'replacement', 'source-text'].includes(type);
+  const hasFontFormatting = ['text', 'replacement', 'source-text'].includes(type);
+  const hasSize = ['text', 'signature', 'replacement', 'source-text'].includes(type);
+  const hasWidth = ['text', 'signature', 'note', 'replacement', 'source-text'].includes(type);
+  const color = annotation.color || currentColor;
+  const widthMax = Math.max(5, Math.floor((1 - annotation.x) * 100));
+  const widthValue = Math.min(widthMax, Math.max(5, Math.round((annotation.w || 0.4) * 100)));
+
+  return (
+    <div className="mobile-properties-bar" role="region" aria-label={`${label} properties`}>
+      <div className="mobile-properties-main">
+        <div className="mobile-property-context">
+          <span className="mobile-property-context-icon">
+            {type === 'highlight' ? <Highlighter size={15} /> : type === 'whiteout' ? <Eraser size={15} /> : type === 'note' ? <MessageSquareText size={15} /> : type === 'draw' ? <Pencil size={15} /> : type === 'shape' ? <Square size={15} /> : <Type size={15} />}
+          </span>
+          <span className="mobile-property-context-copy"><strong>{label}</strong><small>Page {annotation.pageIndex + 1}</small></span>
+        </div>
+        {hasText && (
+          <textarea
+            className="mobile-property-text-input"
+            rows={1}
+            value={annotation.text || ''}
+            onChange={(event) => onUpdate({ text: event.target.value })}
+            onBlur={onFinish}
+            aria-label={type === 'replacement' || type === 'source-text' ? 'Replacement text' : type === 'note' ? 'Note content' : type === 'signature' ? 'Signature text' : 'Text content'}
+            placeholder="Type text…"
+          />
+        )}
+        <button type="button" className="mobile-property-icon-button" onClick={onMore} aria-label="Open full properties" title="More properties"><Info size={16} /></button>
+        {annotation.id && <button type="button" className="mobile-property-icon-button mobile-property-delete" onClick={() => onDelete(annotation.id)} aria-label="Delete selected item" title="Delete item"><Trash2 size={15} /></button>}
+      </div>
+
+      <div className="mobile-properties-controls">
+        {hasFontFormatting && (
+          <>
+            <select
+              className="mobile-property-font"
+              value={annotation.fontFamily || 'Arial'}
+              onChange={(event) => onUpdate({ fontFamily: event.target.value })}
+              onBlur={onFinish}
+              aria-label="Font family"
+            >
+              <option value="Arial">Arial</option>
+              <option value="Times New Roman">Times</option>
+              <option value="Courier New">Courier</option>
+            </select>
+            <div className="mobile-property-toggle-group" role="group" aria-label="Font style">
+              <button type="button" className={annotation.bold ? 'active' : ''} onClick={() => { onUpdate({ bold: !annotation.bold }); onFinish(); }} aria-pressed={Boolean(annotation.bold)} aria-label="Bold" title="Bold"><b>B</b></button>
+              <button type="button" className={annotation.italic ? 'active' : ''} onClick={() => { onUpdate({ italic: !annotation.italic }); onFinish(); }} aria-pressed={Boolean(annotation.italic)} aria-label="Italic" title="Italic"><i>I</i></button>
+            </div>
+            <div className="mobile-property-align-group" role="group" aria-label="Text alignment">
+              {['left', 'center', 'right'].map((align) => (
+                <button key={align} type="button" className={annotation.align === align || (!annotation.align && align === 'left') ? 'active' : ''} onClick={() => { onUpdate({ align }); onFinish(); }} aria-pressed={annotation.align === align || (!annotation.align && align === 'left')} aria-label={`Align ${align}`} title={`Align ${align}`}>
+                  {align === 'left' ? 'L' : align === 'center' ? 'C' : 'R'}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+
+        {hasSize && (
+          <label className="mobile-property-range">
+            <span>Size <b>{annotation.size || 22} pt</b></span>
+            <input type="range" min="6" max="72" step="1" value={annotation.size || 22} onChange={(event) => onUpdate({ size: Number(event.target.value) })} onBlur={onFinish} aria-label="Text size" />
+          </label>
+        )}
+
+        {hasWidth && (
+          <label className="mobile-property-range mobile-width-range">
+            <span>Width <b>{Math.round((annotation.w || 0.4) * 100)}%</b></span>
+            <input type="range" min="5" max={widthMax} step="1" value={widthValue} onChange={(event) => onUpdate({ w: Number(event.target.value) / 100 })} onBlur={onFinish} aria-label="Text box width" />
+          </label>
+        )}
+
+        {type === 'highlight' && (
+          <label className="mobile-property-range">
+            <span>Opacity <b>{Math.round((annotation.opacity ?? 0.34) * 100)}%</b></span>
+            <input type="range" min="10" max="80" step="5" value={Math.round((annotation.opacity ?? 0.34) * 100)} onChange={(event) => onUpdate({ opacity: Number(event.target.value) / 100 })} onBlur={onFinish} aria-label="Highlight opacity" />
+          </label>
+        )}
+
+        {['shape', 'draw'].includes(type) && (
+          <label className="mobile-property-range">
+            <span>Stroke <b>{annotation.strokeWidth || 2.5}px</b></span>
+            <input type="range" min="1" max="8" step="0.5" value={annotation.strokeWidth || 2.5} onChange={(event) => onUpdate({ strokeWidth: Number(event.target.value) })} onBlur={onFinish} aria-label="Stroke width" />
+          </label>
+        )}
+
+        {type !== 'whiteout' && (
+          <div className="mobile-property-colors" role="group" aria-label="Choose item color">
+            {COLORS.map((swatch) => (
+              <button key={swatch} type="button" className={`mobile-property-swatch ${swatch === '#FFFFFF' ? 'swatch-white' : ''} ${color.toLowerCase() === swatch.toLowerCase() ? 'chosen' : ''}`} style={{ '--swatch-color': swatch }} onClick={() => onColorChange(swatch)} aria-label={`Use ${swatch} color`} title={swatch}>
+                {color.toLowerCase() === swatch.toLowerCase() && <Check size={11} />}
+              </button>
+            ))}
+            <label className="mobile-property-custom-color" title="Choose a custom color">
+              <span>+</span><input type="color" value={color} onChange={(event) => onColorChange(event.target.value)} aria-label="Choose custom color" />
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AnnotationLayer({
   annotations,
   pdfTextItems,
@@ -883,7 +990,7 @@ function App() {
   const propertyEditSnapshotRef = useRef(null);
 
   useEffect(() => {
-    if ((selectedId || selectedPdfTextItem) && typeof window !== 'undefined' && window.innerWidth <= 980) {
+    if ((selectedId || selectedPdfTextItem) && typeof window !== 'undefined' && window.innerWidth > 680 && window.innerWidth <= 980) {
       setInspectorOpen(true);
     }
   }, [selectedId, selectedPdfTextItem]);
@@ -1104,13 +1211,11 @@ function App() {
     if (existing) {
       setSelectedPdfTextItem(null);
       setSelectedId(existing.id);
-      setInspectorOpen(true);
       return;
     }
-    // Selecting a text run is only a selection; the PDF preview does not change until the user edits it.
+    // Selecting text updates the inline mobile property rail; the PDF preview stays unchanged until the user edits it.
     setSelectedId(null);
     setSelectedPdfTextItem({ ...textItem, pageIndex: textPageIndex });
-    setInspectorOpen(true);
   };
 
   const handleUndo = () => {
@@ -1657,25 +1762,26 @@ function App() {
               <span>Scroll to move through pages · Drop a PDF anywhere to open it</span>
             </div>
           </div>
-          {pdfDocument && (
+          {pdfDocument && selectedAnnotation ? (
+            <MobilePropertiesBar
+              annotation={selectedAnnotation}
+              label={mobileSelectionLabel}
+              currentColor={currentColor}
+              onUpdate={updateSelectedAnnotation}
+              onColorChange={setAnnotationColor}
+              onFinish={finishPropertyEdit}
+              onDelete={removeAnnotation}
+              onMore={() => setInspectorOpen(true)}
+            />
+          ) : pdfDocument && (
             <div className="mobile-page-details-bar">
-              <span className={`mobile-page-details-icon ${selectedAnnotation ? 'is-selection' : ''}`}>
-                {selectedAnnotation ? (
-                  selectedAnnotation.type === 'highlight' ? <Highlighter size={16} />
-                    : selectedAnnotation.type === 'whiteout' ? <Eraser size={16} />
-                      : selectedAnnotation.type === 'note' ? <MessageSquareText size={16} />
-                        : selectedAnnotation.type === 'draw' ? <Pencil size={16} />
-                          : selectedAnnotation.type === 'shape' ? <Square size={16} />
-                            : selectedAnnotation.type === 'signature' ? <PenTool size={16} />
-                              : <Type size={16} />
-                ) : <FileText size={17} />}
-              </span>
+              <span className="mobile-page-details-icon"><FileText size={17} /></span>
               <span className="mobile-page-details-copy">
-                <strong>{selectedAnnotation ? mobileSelectionLabel : `Page ${String(pageIndex + 1).padStart(2, '0')} / ${String(pageCount).padStart(2, '0')}`}</strong>
-                <small>{selectedAnnotation ? `Page ${selectedAnnotation.pageIndex + 1} · Selected item` : `${pageInfo} · Swipe to pan`}</small>
+                <strong>Page {String(pageIndex + 1).padStart(2, '0')} / {String(pageCount).padStart(2, '0')}</strong>
+                <small>{pageInfo} · Swipe to pan</small>
               </span>
-              <button type="button" className="mobile-page-details-action" onClick={() => setInspectorOpen(true)} aria-label={selectedAnnotation ? 'Open selected item properties' : 'Open page details'} title={selectedAnnotation ? 'Open properties' : 'Open page details'}>
-                <Info size={15} /><span>{selectedAnnotation ? 'Edit' : 'Details'}</span>
+              <button type="button" className="mobile-page-details-action" onClick={() => setInspectorOpen(true)} aria-label="Open page details" title="Open page details">
+                <Info size={15} /><span>Details</span>
               </button>
             </div>
           )}

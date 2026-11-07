@@ -199,7 +199,7 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 .draft-highlight { border: 0; border-radius: 2px; }
 .draft-whiteout { border-style: solid; }
 .loading-document { min-height: 230px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; color: #88867e; font-size: 12px; }
-.mobile-tool-dock, .mobile-page-details-bar { display: none; }
+.mobile-tool-dock, .mobile-page-details-bar, .mobile-properties-bar { display: none; }
 
 .inspector-sidebar { border-left: 1px solid #e9e7e2; }
 .inspector-scroll { padding: 20px 17px 18px; }
@@ -357,6 +357,35 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
   .mobile-page-details-copy strong { overflow: hidden; color: #464640; font-size: 11px; font-weight: 700; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-page-details-copy small { overflow: hidden; color: #929087; font-size: 9px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-page-details-action { height: 30px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 8px; border: 1px solid #e9e7e2; border-radius: 7px; color: #7165c3; background: #fff; font-size: 10px; font-weight: 650; white-space: nowrap; }
+  .mobile-properties-bar { height: 88px; flex: 0 0 88px; min-width: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding: 6px 9px; border-top: 1px solid #e9e7e2; background: #fff; }
+  .mobile-properties-main { min-width: 0; height: 36px; flex: 0 0 36px; display: flex; align-items: center; gap: 6px; }
+  .mobile-property-context { min-width: 0; max-width: 112px; flex: 0 1 auto; display: flex; align-items: center; gap: 5px; }
+  .mobile-property-context-icon { width: 27px; height: 27px; flex: 0 0 27px; display: grid; place-items: center; border-radius: 7px; color: #6254bd; background: #f0eefb; }
+  .mobile-property-context-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .mobile-property-context-copy strong, .mobile-property-context-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-property-context-copy strong { color: #4a4944; font-size: 9px; font-weight: 700; }
+  .mobile-property-context-copy small { color: #98968f; font-size: 8px; }
+  .mobile-property-text-input { min-width: 70px; width: 0; height: 34px; flex: 1 1 auto; resize: none; overflow-x: auto; overflow-y: hidden; white-space: pre; padding: 7px 8px; border: 1px solid #e7e5df; border-radius: 7px; color: #45443f; background: #fbfaf8; font-size: 11px; line-height: 18px; }
+  .mobile-property-icon-button { width: 30px; height: 30px; flex: 0 0 30px; display: grid; place-items: center; border: 1px solid #e8e6e0; border-radius: 7px; color: #77756e; background: #fff; }
+  .mobile-property-icon-button:hover { color: #6254bd; background: #f7f6fc; }
+  .mobile-property-delete { color: #bd6b5d; }
+  .mobile-properties-controls { min-width: 0; height: 34px; flex: 0 0 34px; display: flex; align-items: center; gap: 8px; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; touch-action: pan-x; }
+  .mobile-property-font { width: 100px; height: 29px; flex: 0 0 100px; padding: 0 7px; border: 1px solid #e7e5df; border-radius: 6px; color: #4b4a45; background: #fff; font-size: 10px; }
+  .mobile-property-toggle-group, .mobile-property-align-group { height: 28px; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid #e8e6e0; border-radius: 7px; background: #f7f6f3; }
+  .mobile-property-toggle-group button, .mobile-property-align-group button { width: 26px; height: 22px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; color: #68665f; background: transparent; font-size: 10px; font-weight: 700; }
+  .mobile-property-toggle-group button.active, .mobile-property-align-group button.active { color: #5f51ba; background: #fff; box-shadow: 0 1px 3px rgba(36,34,29,.1); }
+  .mobile-property-range { width: 125px; height: 30px; flex: 0 0 125px; display: flex; flex-direction: column; justify-content: center; gap: 2px; color: #77756f; font-size: 8px; white-space: nowrap; }
+  .mobile-property-range span { display: flex; justify-content: space-between; gap: 4px; }
+  .mobile-property-range b { color: #6254bd; font-size: 8px; font-weight: 700; }
+  .mobile-property-range input { width: 100%; height: 4px; margin: 0; appearance: none; border-radius: 4px; background: #ded9f7; }
+  .mobile-property-range input::-webkit-slider-thumb { width: 12px; height: 12px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: #7667d8; box-shadow: 0 0 0 1px #8d80db; }
+  .mobile-property-range input::-moz-range-thumb { width: 9px; height: 9px; border: 2px solid #fff; border-radius: 50%; background: #7667d8; box-shadow: 0 0 0 1px #8d80db; }
+  .mobile-property-colors { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; padding: 0 2px; }
+  .mobile-property-swatch { width: 19px; height: 19px; flex: 0 0 19px; display: grid; place-items: center; padding: 0; border: 1.5px solid #fff; border-radius: 50%; color: #fff; background: var(--swatch-color); box-shadow: 0 0 0 1px rgba(45,42,35,.13); }
+  .mobile-property-swatch.chosen { box-shadow: 0 0 0 1.5px #7061c9; }
+  .mobile-property-swatch.swatch-white { color: #6658c7; }
+  .mobile-property-custom-color { position: relative; width: 19px; height: 19px; flex: 0 0 19px; display: grid; place-items: center; overflow: hidden; border: 1px dashed #c9c6bf; border-radius: 50%; color: #89877f; font-size: 14px; line-height: 1; }
+  .mobile-property-custom-color input { position: absolute; inset: -5px; width: 29px; height: 29px; opacity: 0; }
   .mobile-tool-dock { height: calc(54px + env(safe-area-inset-bottom)); flex: 0 0 calc(54px + env(safe-area-inset-bottom)); display: flex; justify-content: flex-start; align-items: center; gap: 5px; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity; padding: 0 9px env(safe-area-inset-bottom); background: #fff; border-top: 1px solid #e9e7e2; scrollbar-width: none; }
   .mobile-tool-dock::-webkit-scrollbar { display: none; }
   .mobile-tool-dock button { width: auto; min-width: max-content; height: 37px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: 9px; color: #77766f; background: transparent; scroll-snap-align: start; white-space: nowrap; }
