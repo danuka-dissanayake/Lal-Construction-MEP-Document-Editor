@@ -1,6 +1,6 @@
 # Lal Construction MEP Document Editor
 
-A single-page, browser-based PDF editor for Lal Construction, built with React, Vite, PDF.js, and pdf-lib. Files are opened and edited locally in the browser; there is no upload API or backend required. Existing PDF text is preserved as-is: edits are added as PDF annotations, and the whiteout tool masks content visually rather than rewriting the source text.
+A single-page, browser-based PDF editor for Lal Construction, built with React, Vite, PDF.js, and pdf-lib. Files are opened and edited locally in the browser; there is no upload API or backend required. Selectable PDF text runs can be visually replaced with a white patch and new text. The original text remains underneath the patch, so this is not secure redaction; scanned PDFs need OCR before their text can be edited.
 
 ## Run locally
 
@@ -20,9 +20,9 @@ This is a static Vite app and fits Vercel's free Hobby plan:
 ## Included editor features
 
 - Open a PDF from disk or drag and drop it into the editor.
-- Render and navigate pages with thumbnails, zoom controls, and fit-to-page.
-- Add text and typed signatures, highlight, draw, add rectangles and sticky notes, cover existing content with whiteout, then move or erase annotations.
-- Change annotation colors, text size, highlight opacity, and stroke weight.
+- Scroll vertically through the full document, with lazy page and thumbnail rendering, page navigation, zoom controls, and fit-to-page.
+- Select and visually replace extractable text runs in uploaded PDFs (clicking only selects; original layout stays unchanged until you type), with adjustable text-box width; add text and typed signatures, highlight, draw, add rectangles and sticky notes, cover content with whiteout, then move or erase annotations.
+- Format added and replacement text with font family, bold, italic, and alignment controls; change annotation colors, text size, highlight opacity, and stroke weight.
 - Add, duplicate, and remove pages.
 - Undo and redo annotation changes; download a new PDF with edits included.
 - A three-page sample document is generated locally on first load so the editor is ready to explore.

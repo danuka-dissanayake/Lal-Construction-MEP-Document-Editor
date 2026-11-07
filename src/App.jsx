@@ -30,6 +30,7 @@ import {
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { extractPageTextItems } from './pdfText.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -38,7 +39,8 @@ const DEFAULT_COLOR = '#7666D8';
 
 const TOOL_OPTIONS = [
   { id: 'select', label: 'Select', hint: 'Move things around', icon: MousePointer2 },
-  { id: 'text', label: 'Add text', hint: 'Place a text box', icon: Type },
+  { id: 'edit-text', label: 'Replace text', hint: 'Edit selectable PDF text', icon: Type },
+  { id: 'text', label: 'Add text', hint: 'Place a new text box', icon: Type },
   { id: 'highlight', label: 'Highlight', hint: 'Drag over a passage', icon: Highlighter },
   { id: 'whiteout', label: 'Whiteout', hint: 'Cover existing content', icon: Eraser },
   { id: 'draw', label: 'Freehand', hint: 'Sketch on the page', icon: Pencil },
@@ -50,6 +52,7 @@ const TOOL_OPTIONS = [
 
 const TOOL_CURSORS = {
   select: 'default',
+  'edit-text': 'text',
   text: 'text',
   highlight: 'crosshair',
   whiteout: 'crosshair',
@@ -57,7 +60,7 @@ const TOOL_CURSORS = {
   shape: 'crosshair',
   signature: 'copy',
   note: 'copy',
-  eraser: 'not-allowed',
+  eraser: "url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22m7%2021%2010.5-10.5a2.1%202.1%200%200%200-3-3L4%2018l3%203Z%22%20fill%3D%22%23fff%22%20stroke%3D%22%237667d8%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%2F%3E%3Cpath%20d%3D%22m5%2017%204%204M3%2021h14%22%20fill%3D%22none%22%20stroke%3D%22%237667d8%22%20stroke-width%3D%221.8%22%2F%3E%3C%2Fsvg%3E') 4 18, crosshair",
 };
 
 function colorToRgb(hex) {
@@ -83,7 +86,7 @@ function makeId() {
 }
 
 function drawWrappedText(page, text, options) {
-  const { font, size, color, x, y, maxWidth, lineHeight, opacity } = options;
+  const { font, size, color, x, y, maxWidth, lineHeight, opacity, align = 'left' } = options;
   const normalized = String(text || '').split('\n').flatMap((line) => {
     const words = line.split(/\s+/).filter(Boolean);
     if (!words.length) return [''];
@@ -102,8 +105,10 @@ function drawWrappedText(page, text, options) {
     return lines;
   });
   normalized.forEach((line, index) => {
+    const lineWidth = font.widthOfTextAtSize(line, size);
+    const lineX = align === 'center' ? x + Math.max(0, (maxWidth - lineWidth) / 2) : align === 'right' ? x + Math.max(0, maxWidth - lineWidth) : x;
     page.drawText(line, {
-      x,
+      x: lineX,
       y: y - index * lineHeight,
       font,
       size,
@@ -216,10 +221,33 @@ async function createStarterPdf() {
 }
 
 function PageThumbnail({ document, pageNumber, active, onClick }) {
+  const buttonRef = useRef(null);
   const canvasRef = useRef(null);
+  const [near, setNear] = useState(pageNumber <= 4);
 
   useEffect(() => {
-    if (!document || !canvasRef.current) return undefined;
+    const node = buttonRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setNear(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setNear(entry.isIntersecting);
+    }, { root: node.closest('.sidebar-scroll'), rootMargin: '180px 0px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!document || (!near && !active) || !canvas) {
+      if (!near && !active && canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      return undefined;
+    }
     let task;
     let cancelled = false;
     document.getPage(pageNumber).then((page) => {
@@ -247,13 +275,168 @@ function PageThumbnail({ document, pageNumber, active, onClick }) {
       cancelled = true;
       task?.cancel();
     };
-  }, [document, pageNumber]);
+  }, [document, pageNumber, near, active]);
 
   return (
-    <button className={`page-thumb ${active ? 'active' : ''}`} onClick={onClick} type="button" aria-label={`Go to page ${pageNumber}`}>
+    <button ref={buttonRef} className={`page-thumb ${active ? 'active' : ''}`} onClick={onClick} type="button" aria-label={`Go to page ${pageNumber}`}>
       <span className="thumb-paper"><canvas ref={canvasRef} /></span>
       <span className="thumb-meta"><span className="thumb-number">{String(pageNumber).padStart(2, '0')}</span><span className="thumb-name">Page {pageNumber}</span></span>
     </button>
+  );
+}
+
+function PdfPage({
+  pdfDocument,
+  pageIndex,
+  pageStageRef,
+  zoom,
+  active,
+  annotations,
+  tool,
+  currentColor,
+  selectedId,
+  setSelectedId,
+  setSelectedPdfTextItem,
+  addAnnotation,
+  commitAnnotations,
+  updateAnnotation,
+  removeAnnotation,
+  onPageSize,
+  onTextItems,
+  onTextLoading,
+  onEditPdfText,
+}) {
+  const recordRef = useRef(null);
+  const canvasRef = useRef(null);
+  const renderTaskRef = useRef(null);
+  const [near, setNear] = useState(pageIndex === 0);
+  const [pdfPage, setPdfPage] = useState(null);
+  const [textItems, setTextItems] = useState([]);
+  const [pageSize, setPageSize] = useState({ width: 612 * zoom / 100, height: 792 * zoom / 100 });
+
+  useEffect(() => {
+    const node = recordRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setNear(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setNear(entry.isIntersecting);
+    }, { root: pageStageRef.current || null, rootMargin: '850px 0px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [pageStageRef]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPdfPage(null);
+    setTextItems([]);
+    if (!pdfDocument || !near) return () => { cancelled = true; };
+    pdfDocument.getPage(pageIndex + 1).then((page) => {
+      if (!cancelled) setPdfPage(page);
+    }).catch((error) => {
+      if (!cancelled) console.warn(`Could not load page ${pageIndex + 1}`, error);
+    });
+    return () => { cancelled = true; };
+  }, [pdfDocument, pageIndex, near]);
+
+  useEffect(() => {
+    if (!pdfPage) return;
+    const viewport = pdfPage.getViewport({ scale: zoom / 100 });
+    const size = { width: viewport.width, height: viewport.height };
+    setPageSize(size);
+    onPageSize(pageIndex, size);
+  }, [pdfPage, pageIndex, zoom, onPageSize]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return undefined;
+    if (!pdfPage || !near) {
+      if (!near) {
+        canvas.width = 0;
+        canvas.height = 0;
+      }
+      return undefined;
+    }
+    let cancelled = false;
+    const viewport = pdfPage.getViewport({ scale: zoom / 100 });
+    const ratio = window.devicePixelRatio || 1;
+    const context = canvas.getContext('2d', { alpha: false });
+    canvas.width = Math.max(1, Math.round(viewport.width * ratio));
+    canvas.height = Math.max(1, Math.round(viewport.height * ratio));
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+    const task = pdfPage.render({
+      canvasContext: context,
+      viewport,
+      transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : undefined,
+    });
+    renderTaskRef.current = task;
+    task.promise.catch((error) => {
+      if (!cancelled && error?.name !== 'RenderingCancelledException') console.warn(`Could not render page ${pageIndex + 1}`, error);
+    });
+    return () => {
+      cancelled = true;
+      task.cancel();
+      if (renderTaskRef.current === task) renderTaskRef.current = null;
+    };
+  }, [pdfPage, pageIndex, zoom, near]);
+
+  useEffect(() => {
+    if (!pdfPage || tool !== 'edit-text' || !near) {
+      onTextLoading(pageIndex, false);
+      return undefined;
+    }
+    let cancelled = false;
+    onTextLoading(pageIndex, true);
+    extractPageTextItems(pdfPage).then((items) => {
+      if (cancelled) return;
+      setTextItems(items);
+      onTextItems(pageIndex, items);
+      onTextLoading(pageIndex, false);
+    }).catch((error) => {
+      if (cancelled) return;
+      console.warn(`Could not read text on page ${pageIndex + 1}`, error);
+      setTextItems([]);
+      onTextItems(pageIndex, []);
+      onTextLoading(pageIndex, false);
+    });
+    return () => {
+      cancelled = true;
+      onTextLoading(pageIndex, false);
+    };
+  }, [pdfPage, pageIndex, tool, near, onTextItems, onTextLoading]);
+
+  return (
+    <div className={`document-page-record ${active ? 'active' : ''}`} data-page-index={pageIndex} ref={recordRef}>
+      <div className="document-page-caption" style={{ width: pageSize.width }}>
+        <span>PAGE {String(pageIndex + 1).padStart(2, '0')}</span>
+        <span>{active ? 'CURRENT PAGE' : 'PDF PAGE'}</span>
+      </div>
+      <div className="pdf-page-shell" style={{ width: pageSize.width, height: pageSize.height }}>
+        {near && pdfPage ? <canvas ref={canvasRef} className="pdf-canvas" /> : <div className="pdf-page-placeholder" />}
+        {near && pdfPage && (
+          <AnnotationLayer
+            annotations={annotations}
+            pdfTextItems={textItems}
+            onEditPdfText={(item) => onEditPdfText(item, pageIndex)}
+            currentPage={pageIndex}
+            pageSize={pageSize}
+            zoom={zoom}
+            tool={tool}
+            currentColor={currentColor}
+            selectedId={selectedId}
+            setSelectedId={setSelectedId}
+            setSelectedPdfTextItem={setSelectedPdfTextItem}
+            addAnnotation={addAnnotation}
+            commitAnnotations={commitAnnotations}
+            updateAnnotation={updateAnnotation}
+            removeAnnotation={removeAnnotation}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -286,6 +469,8 @@ function Palette({ value, onChange, label = 'COLOR' }) {
 
 function AnnotationLayer({
   annotations,
+  pdfTextItems,
+  onEditPdfText,
   currentPage,
   pageSize,
   zoom,
@@ -293,6 +478,7 @@ function AnnotationLayer({
   currentColor,
   selectedId,
   setSelectedId,
+  setSelectedPdfTextItem,
   addAnnotation,
   commitAnnotations,
   updateAnnotation,
@@ -313,13 +499,43 @@ function AnnotationLayer({
   }, []);
 
   const handlePointerDown = (event) => {
+    if (tool !== 'edit-text') setSelectedPdfTextItem(null);
     const point = pointFromEvent(event);
+    const resizeTarget = event.target.closest?.('[data-resize-id]');
     const target = event.target.closest?.('[data-annotation-id]');
     const targetId = target?.dataset.annotationId;
+
+    if (tool === 'select' && resizeTarget) {
+      const id = resizeTarget.dataset.resizeId;
+      const annotation = annotations.find((item) => item.id === id);
+      if (!annotation) return;
+      event.preventDefault();
+      setSelectedId(id);
+      layerRef.current?.setPointerCapture?.(event.pointerId);
+      dragRef.current = {
+        mode: 'resize',
+        id,
+        pointerId: event.pointerId,
+        startX: point.x,
+        originalX: annotation.x,
+        originalW: annotation.w,
+        originalAnnotations: annotations,
+      };
+      return;
+    }
 
     if (tool === 'eraser' && targetId) {
       event.preventDefault();
       removeAnnotation(targetId);
+      return;
+    }
+
+    if (tool === 'edit-text' && targetId) {
+      const annotation = annotations.find((item) => item.id === targetId && item.type === 'replacement');
+      if (annotation) {
+        setSelectedPdfTextItem(null);
+        setSelectedId(annotation.id);
+      }
       return;
     }
 
@@ -359,6 +575,10 @@ function AnnotationLayer({
         text: tool === 'text' ? 'Type something here' : tool === 'signature' ? 'Your signature' : 'A little note to remember…',
         color: currentColor,
         size: tool === 'signature' ? 28 : 22,
+        fontFamily: 'Arial',
+        bold: false,
+        italic: false,
+        align: 'left',
         opacity: 0.34,
         strokeWidth: 2.5,
       };
@@ -387,11 +607,16 @@ function AnnotationLayer({
     const drag = dragRef.current;
     if (drag && drag.pointerId === event.pointerId) {
       const dx = point.x - drag.startX;
-      const dy = point.y - drag.startY;
-      updateAnnotation(drag.id, {
-        x: clamp(drag.originalX + dx, -0.2, 0.95),
-        y: clamp(drag.originalY + dy, -0.2, 0.95),
-      });
+      if (drag.mode === 'resize') {
+        const maxWidth = Math.max(0.05, 1 - drag.originalX);
+        updateAnnotation(drag.id, { w: clamp(drag.originalW + dx, 0.05, maxWidth) });
+      } else {
+        const dy = point.y - drag.startY;
+        updateAnnotation(drag.id, {
+          x: clamp(drag.originalX + dx, -0.2, 0.95),
+          y: clamp(drag.originalY + dy, -0.2, 0.95),
+        });
+      }
       return;
     }
     const activeDraft = draftRef.current;
@@ -443,7 +668,7 @@ function AnnotationLayer({
 
   const pageAnnotations = annotations.filter((annotation) => annotation.pageIndex === currentPage);
   const draftPath = (points = []) => points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x * 1000} ${point.y * 1000}`).join(' ');
-  const interactive = tool === 'select' || tool === 'eraser';
+  const interactive = tool === 'select' || tool === 'eraser' || tool === 'edit-text';
 
   return (
     <div
@@ -456,6 +681,36 @@ function AnnotationLayer({
       onPointerCancel={handlePointerUp}
       role="presentation"
     >
+      {tool === 'edit-text' && pdfTextItems.map((item) => (
+        <div
+          key={`pdf-text-${item.index}`}
+          role="button"
+          tabIndex={0}
+          data-pdf-text-index={item.index}
+          className="pdf-text-hit"
+          style={{
+            left: `${item.x * 100}%`,
+            top: `${item.y * 100}%`,
+            width: `${item.w * 100}%`,
+            height: `${item.h * 100}%`,
+            fontSize: `${item.size * zoom / 100}px`,
+            transform: item.angle ? `rotate(${item.angle}deg)` : undefined,
+          }}
+          aria-label={`Edit PDF text: ${item.text.slice(0, 90)}`}
+          title={`Edit: ${item.text.slice(0, 90)}`}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onEditPdfText(item);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              onEditPdfText(item);
+            }
+          }}
+        />
+      ))}
       {pageAnnotations.map((annotation) => {
         const isSelected = annotation.id === selectedId;
         const shared = {
@@ -512,6 +767,31 @@ function AnnotationLayer({
             />
           );
         }
+        if (annotation.type === 'replacement') {
+          return (
+            <div
+              key={annotation.id}
+              {...shared}
+              data-pdf-text-index={annotation.sourceIndex}
+              className={`${shared.className} annotation-replacement`}
+              style={{
+                ...shared.style,
+                width: `${annotation.w * 100}%`,
+                minHeight: `${annotation.h * 100}%`,
+                fontSize: `${(annotation.size || 12) * zoom / 100}px`,
+                color: annotation.color || '#292a27',
+                fontFamily: annotation.fontFamily || 'Arial, sans-serif',
+                fontWeight: annotation.bold ? 700 : 400,
+                fontStyle: annotation.italic ? 'italic' : 'normal',
+                textAlign: annotation.align || 'left',
+                transform: annotation.angle ? `rotate(${annotation.angle}deg)` : undefined,
+              }}
+            >
+              <span>{annotation.text}</span>
+              {isSelected && tool === 'select' && <span className="annotation-resize-handle" data-resize-id={annotation.id} title="Drag to widen text box" />}
+            </div>
+          );
+        }
         if (annotation.type === 'note') {
           return (
             <div
@@ -522,6 +802,7 @@ function AnnotationLayer({
             >
               <span className="note-dot" style={{ background: annotation.color }} />
               <span>{annotation.text}</span>
+              {isSelected && tool === 'select' && <span className="annotation-resize-handle" data-resize-id={annotation.id} title="Drag to widen note" />}
             </div>
           );
         }
@@ -530,9 +811,19 @@ function AnnotationLayer({
             key={annotation.id}
             {...shared}
             className={`${shared.className} annotation-text ${annotation.type === 'signature' ? 'annotation-signature' : ''}`}
-            style={{ ...shared.style, width: `${annotation.w * 100}%`, fontSize: `${(annotation.size || 22) * zoom / 100}px`, color: annotation.color }}
+            style={{
+              ...shared.style,
+              width: `${annotation.w * 100}%`,
+              fontSize: `${(annotation.size || 22) * zoom / 100}px`,
+              color: annotation.color,
+              fontFamily: annotation.type === 'signature' ? undefined : annotation.fontFamily || 'Arial, sans-serif',
+              fontWeight: annotation.bold ? 700 : 500,
+              fontStyle: annotation.type === 'signature' || annotation.italic ? 'italic' : 'normal',
+              textAlign: annotation.align || 'left',
+            }}
           >
             {annotation.text}
+            {isSelected && tool === 'select' && <span className="annotation-resize-handle" data-resize-id={annotation.id} title="Drag to widen text box" />}
           </div>
         );
       })}
@@ -562,14 +853,17 @@ function AnnotationLayer({
 function App() {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [pdfBytes, setPdfBytes] = useState(null);
+  const [pdfTextByPage, setPdfTextByPage] = useState({});
+  const [loadingTextPages, setLoadingTextPages] = useState({});
+  const [pageSizes, setPageSizes] = useState({});
   const [documentName, setDocumentName] = useState('Fieldnotes — a slower kind of living.pdf');
   const [pageIndex, setPageIndex] = useState(0);
   const [zoom, setZoom] = useState(82);
-  const [pageSize, setPageSize] = useState({ width: 502, height: 649 });
   const [tool, setTool] = useState('select');
   const [currentColor, setCurrentColor] = useState(DEFAULT_COLOR);
   const [annotations, setAnnotations] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
+  const [selectedPdfTextItem, setSelectedPdfTextItem] = useState(null);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -578,13 +872,24 @@ function App() {
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const fileInputRef = useRef(null);
-  const canvasRef = useRef(null);
-  const renderTaskRef = useRef(null);
+  const pageStageRef = useRef(null);
+  const pendingPageScrollRef = useRef(null);
   const toastTimerRef = useRef(null);
   const propertyEditSnapshotRef = useRef(null);
 
   const pageCount = pdfDocument?.numPages || 0;
-  const selectedAnnotation = annotations.find((item) => item.id === selectedId) || null;
+  const pageSize = pageSizes[pageIndex] || { width: 612 * zoom / 100, height: 792 * zoom / 100 };
+  const pdfTextItems = pdfTextByPage[pageIndex] || [];
+  const textItemsLoading = Boolean(loadingTextPages[pageIndex]);
+  const storedSelection = annotations.find((item) => item.id === selectedId) || null;
+  const selectedAnnotation = storedSelection || (selectedPdfTextItem ? {
+    ...selectedPdfTextItem,
+    id: null,
+    type: 'source-text',
+    pageIndex: selectedPdfTextItem.pageIndex ?? pageIndex,
+    text: selectedPdfTextItem.text,
+    color: '#292a27',
+  } : null);
   const activeTool = TOOL_OPTIONS.find((item) => item.id === tool) || TOOL_OPTIONS[0];
 
   const showToast = useCallback((message) => {
@@ -592,6 +897,92 @@ function App() {
     window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(''), 3200);
   }, []);
+
+  const updatePageSize = useCallback((index, size) => {
+    setPageSizes((current) => {
+      const previous = current[index];
+      if (previous && Math.abs(previous.width - size.width) < 0.5 && Math.abs(previous.height - size.height) < 0.5) return current;
+      return { ...current, [index]: size };
+    });
+  }, []);
+
+  const handleTextItemsLoaded = useCallback((index, items) => {
+    setPdfTextByPage((current) => ({ ...current, [index]: items }));
+    setLoadingTextPages((current) => {
+      if (!current[index]) return current;
+      const next = { ...current };
+      delete next[index];
+      return next;
+    });
+  }, []);
+
+  const handleTextLoading = useCallback((index, loading) => {
+    setLoadingTextPages((current) => {
+      if (loading) return current[index] ? current : { ...current, [index]: true };
+      if (!current[index]) return current;
+      const next = { ...current };
+      delete next[index];
+      return next;
+    });
+  }, []);
+
+  const focusPage = useCallback((index) => {
+    const stage = pageStageRef.current;
+    const page = stage?.querySelector(`[data-page-index="${index}"]`);
+    if (!stage || !page) return false;
+    const stageRect = stage.getBoundingClientRect();
+    const pageRect = page.getBoundingClientRect();
+    stage.scrollTo({ top: stage.scrollTop + pageRect.top - stageRect.top - 12, behavior: 'smooth' });
+    return true;
+  }, []);
+
+  useEffect(() => {
+    const target = pendingPageScrollRef.current;
+    if (target === null) return undefined;
+    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      focusPage(target);
+      pendingPageScrollRef.current = null;
+    }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [pageIndex, pageCount, focusPage]);
+
+  const goToPage = useCallback((index) => {
+    const target = Math.min(Math.max(index, 0), Math.max(0, pageCount - 1));
+    setSelectedId(null);
+    setSelectedPdfTextItem(null);
+    setPageIndex(target);
+    if (!focusPage(target)) window.requestAnimationFrame(() => focusPage(target));
+  }, [pageCount, focusPage]);
+
+  const handlePageStageScroll = useCallback(() => {
+    const stage = pageStageRef.current;
+    if (!stage) return;
+    const bounds = stage.getBoundingClientRect();
+    const anchor = bounds.top + Math.min(80, bounds.height * 0.18);
+    const records = [...stage.querySelectorAll('[data-page-index]')];
+    let nextPage = pageIndex;
+    let closestDistance = Infinity;
+    records.forEach((record) => {
+      const rect = record.getBoundingClientRect();
+      const index = Number(record.dataset.pageIndex);
+      if (anchor >= rect.top && anchor <= rect.bottom) {
+        nextPage = index;
+        closestDistance = -1;
+        return;
+      }
+      if (closestDistance === -1) return;
+      const distance = Math.min(Math.abs(anchor - rect.top), Math.abs(anchor - rect.bottom));
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        nextPage = index;
+      }
+    });
+    if (nextPage !== pageIndex) {
+      setPageIndex(nextPage);
+      setSelectedId(null);
+      setSelectedPdfTextItem(null);
+    }
+  }, [pageIndex]);
 
   useEffect(() => {
     let alive = true;
@@ -613,41 +1004,6 @@ function App() {
       window.clearTimeout(toastTimerRef.current);
     };
   }, [showToast]);
-
-  useEffect(() => {
-    if (!pdfDocument || !canvasRef.current) return undefined;
-    let cancelled = false;
-    let task;
-    pdfDocument.getPage(pageIndex + 1).then((page) => {
-      if (cancelled || !canvasRef.current) return;
-      const viewport = page.getViewport({ scale: zoom / 100 });
-      const ratio = window.devicePixelRatio || 1;
-      const canvas = canvasRef.current;
-      const context = canvas.getContext('2d', { alpha: false });
-      canvas.width = Math.max(1, Math.round(viewport.width * ratio));
-      canvas.height = Math.max(1, Math.round(viewport.height * ratio));
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-      setPageSize({ width: viewport.width, height: viewport.height });
-      task = page.render({
-        canvasContext: context,
-        viewport,
-        transform: ratio !== 1 ? [ratio, 0, 0, ratio, 0, 0] : undefined,
-      });
-      renderTaskRef.current = task;
-      return task.promise;
-    }).catch((error) => {
-      if (!cancelled && error?.name !== 'RenderingCancelledException') {
-        console.error('PDF page render failed', error);
-        showToast('This page could not be rendered. Try another PDF.');
-      }
-    });
-    return () => {
-      cancelled = true;
-      renderTaskRef.current?.cancel();
-      renderTaskRef.current = null;
-    };
-  }, [pdfDocument, pageIndex, zoom, showToast]);
 
   useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
 
@@ -680,7 +1036,23 @@ function App() {
   const updateSelectedAnnotation = (patch) => {
     if (!selectedAnnotation) return;
     if (!propertyEditSnapshotRef.current) propertyEditSnapshotRef.current = annotations;
-    updateAnnotation(selectedAnnotation.id, patch);
+    if (selectedAnnotation.type === 'source-text') {
+      const replacement = {
+        ...selectedAnnotation,
+        id: makeId(),
+        type: 'replacement',
+        sourceIndex: selectedAnnotation.index,
+        sourceText: selectedAnnotation.text,
+        edited: true,
+        ...patch,
+      };
+      setAnnotations((items) => [...items, replacement]);
+      setSelectedId(replacement.id);
+      setSelectedPdfTextItem(null);
+      setDirty(true);
+      return;
+    }
+    updateAnnotation(selectedAnnotation.id, { ...patch, edited: true });
   };
 
   const finishPropertyEdit = () => {
@@ -691,11 +1063,30 @@ function App() {
 
   const setAnnotationColor = (color) => {
     setCurrentColor(color);
-    if (selectedAnnotation && selectedAnnotation.color !== color) {
+    if (!selectedAnnotation || selectedAnnotation.color === color) return;
+    if (!selectedAnnotation.id) {
+      updateSelectedAnnotation({ color });
       finishPropertyEdit();
-      commitAnnotations(annotations);
-      updateAnnotation(selectedAnnotation.id, { color });
+      return;
     }
+    finishPropertyEdit();
+    commitAnnotations(annotations);
+    updateAnnotation(selectedAnnotation.id, { color, edited: true });
+  };
+
+  const handleEditPdfText = (textItem, textPageIndex = pageIndex) => {
+    setPageIndex(textPageIndex);
+    const existing = annotations.find((item) => item.type === 'replacement' && item.pageIndex === textPageIndex && item.sourceIndex === textItem.index);
+    if (existing) {
+      setSelectedPdfTextItem(null);
+      setSelectedId(existing.id);
+      setInspectorOpen(true);
+      return;
+    }
+    // Selecting a text run is only a selection; the PDF preview does not change until the user edits it.
+    setSelectedId(null);
+    setSelectedPdfTextItem({ ...textItem, pageIndex: textPageIndex });
+    setInspectorOpen(true);
   };
 
   const handleUndo = () => {
@@ -705,6 +1096,7 @@ function App() {
     setAnnotations(previous);
     setUndoStack((stack) => stack.slice(0, -1));
     setSelectedId(null);
+    setSelectedPdfTextItem(null);
     setDirty(true);
   };
 
@@ -715,6 +1107,7 @@ function App() {
     setAnnotations(next);
     setRedoStack((stack) => stack.slice(0, -1));
     setSelectedId(null);
+    setSelectedPdfTextItem(null);
     setDirty(true);
   };
 
@@ -724,6 +1117,10 @@ function App() {
     setPdfBytes(cleanBytes);
     setPdfDocument(proxy);
     setPageIndex(Math.min(Math.max(nextPage, 0), proxy.numPages - 1));
+    setSelectedPdfTextItem(null);
+    setPdfTextByPage({});
+    setLoadingTextPages({});
+    setPageSizes({});
     setDocumentName(nextName || 'Untitled.pdf');
     if (!preserveAnnotations) {
       setAnnotations([]);
@@ -745,6 +1142,7 @@ function App() {
       const bytes = new Uint8Array(await file.arrayBuffer());
       await installPdf(bytes, file.name, 0);
       setZoom(82);
+      pageStageRef.current?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
       showToast(`Opened ${file.name}`);
     } catch (error) {
       console.error(error);
@@ -770,7 +1168,9 @@ function App() {
       const document = await PDFDocument.load(pdfBytes.slice());
       document.addPage([612, 792]);
       const bytes = await document.save();
-      await savePdfBytes(bytes, document.getPageCount() - 1);
+      const addedIndex = document.getPageCount() - 1;
+      pendingPageScrollRef.current = addedIndex;
+      await savePdfBytes(bytes, addedIndex);
       showToast('Blank page added');
     } catch (error) {
       console.error(error);
@@ -794,6 +1194,7 @@ function App() {
         .map((item) => ({ ...item, id: makeId(), pageIndex: insertionIndex }));
       const shifted = annotations.map((item) => item.pageIndex > pageIndex ? { ...item, pageIndex: item.pageIndex + 1 } : item);
       setAnnotations([...shifted, ...copiedAnnotations]);
+      pendingPageScrollRef.current = insertionIndex;
       await savePdfBytes(bytes, insertionIndex);
       setAnnotations([...shifted, ...copiedAnnotations]);
       setDirty(true);
@@ -822,6 +1223,7 @@ function App() {
         .filter((item) => item.pageIndex !== deletedIndex)
         .map((item) => item.pageIndex > deletedIndex ? { ...item, pageIndex: item.pageIndex - 1 } : item);
       const nextPage = Math.min(deletedIndex, pageCount - 2);
+      pendingPageScrollRef.current = nextPage;
       await savePdfBytes(bytes, nextPage);
       setAnnotations(nextAnnotations);
       setDirty(true);
@@ -842,7 +1244,25 @@ function App() {
       const regular = await document.embedFont(StandardFonts.Helvetica);
       const italic = await document.embedFont(StandardFonts.HelveticaOblique);
       const bold = await document.embedFont(StandardFonts.HelveticaBold);
-      const signatureFont = await document.embedFont(StandardFonts.TimesRomanItalic);
+      const boldItalic = await document.embedFont(StandardFonts.HelveticaBoldOblique);
+      const serif = await document.embedFont(StandardFonts.TimesRoman);
+      const serifBold = await document.embedFont(StandardFonts.TimesRomanBold);
+      const serifItalic = await document.embedFont(StandardFonts.TimesRomanItalic);
+      const serifBoldItalic = await document.embedFont(StandardFonts.TimesRomanBoldItalic);
+      const mono = await document.embedFont(StandardFonts.Courier);
+      const monoBold = await document.embedFont(StandardFonts.CourierBold);
+      const monoItalic = await document.embedFont(StandardFonts.CourierOblique);
+      const monoBoldItalic = await document.embedFont(StandardFonts.CourierBoldOblique);
+      const signatureFont = serifItalic;
+      const chooseFont = (annotation) => {
+        if (annotation.type === 'signature') return signatureFont;
+        const family = String(annotation.fontFamily || '').toLowerCase();
+        const isMono = family.includes('courier') || family.includes('mono');
+        const isSerif = family.includes('times') || family.includes('serif');
+        if (isMono) return annotation.bold ? (annotation.italic ? monoBoldItalic : monoBold) : (annotation.italic ? monoItalic : mono);
+        if (isSerif) return annotation.bold ? (annotation.italic ? serifBoldItalic : serifBold) : (annotation.italic ? serifItalic : serif);
+        return annotation.bold ? (annotation.italic ? boldItalic : bold) : (annotation.italic ? italic : regular);
+      };
 
       annotations.forEach((annotation) => {
         if (annotation.pageIndex < 0 || annotation.pageIndex >= document.getPageCount()) return;
@@ -855,6 +1275,29 @@ function App() {
         const boxHeight = annotation.h * height;
         const color = colorToRgb(annotation.color || DEFAULT_COLOR);
 
+        if (annotation.type === 'replacement') {
+          const padding = Math.min(1.5, Math.max(0.6, (annotation.size || 12) * 0.05));
+          page.drawRectangle({
+            x: Math.max(0, x - padding),
+            y: Math.max(0, height - top - boxHeight - padding),
+            width: Math.min(width - Math.max(0, x - padding), boxWidth + padding * 2),
+            height: boxHeight + padding * 2,
+            color: colorToRgb('#FFFFFF'),
+          });
+          const replacementFont = chooseFont(annotation);
+          const size = annotation.size || 12;
+          drawWrappedText(page, annotation.text || '', {
+            x,
+            y: height - top - size * 0.82,
+            maxWidth: Math.max(size * 0.65, boxWidth),
+            font: replacementFont,
+            size,
+            lineHeight: size * 1.18,
+            color,
+            align: annotation.align || 'left',
+          });
+          return;
+        }
         if (annotation.type === 'whiteout') {
           page.drawRectangle({
             x,
@@ -925,7 +1368,7 @@ function App() {
           return;
         }
         const size = annotation.size || 22;
-        const font = annotation.type === 'signature' ? signatureFont : annotation.type === 'text' && annotation.bold ? bold : annotation.type === 'text' && annotation.italic ? italic : regular;
+        const font = chooseFont(annotation);
         drawWrappedText(page, annotation.text || '', {
           x,
           y: height - top - size,
@@ -934,6 +1377,7 @@ function App() {
           size,
           lineHeight: size * 1.2,
           color,
+          align: annotation.align || 'left',
         });
       });
 
@@ -986,8 +1430,8 @@ function App() {
         removeAnnotation(selectedId);
       }
       if (!editingText && event.key === 'Escape') setSelectedId(null);
-      if (!editingText && ['v', 't', 'h', 'd', 'r'].includes(event.key.toLowerCase())) {
-        const shortcutMap = { v: 'select', t: 'text', h: 'highlight', d: 'draw', r: 'shape' };
+      if (!editingText && ['v', 'e', 't', 'h', 'd', 'r'].includes(event.key.toLowerCase())) {
+        const shortcutMap = { v: 'select', e: 'edit-text', t: 'text', h: 'highlight', d: 'draw', r: 'shape' };
         setTool(shortcutMap[event.key.toLowerCase()]);
       }
     };
@@ -1103,7 +1547,7 @@ function App() {
                   document={pdfDocument}
                   pageNumber={index + 1}
                   active={pageIndex === index}
-                  onClick={() => { setPageIndex(index); setSelectedId(null); }}
+                  onClick={() => goToPage(index)}
                 />
               ))}
               {!pdfDocument && <div className="thumb-loading"><LoaderCircle className="spin" size={18} /> Preparing pages</div>}
@@ -1122,16 +1566,16 @@ function App() {
           <div className="canvas-toolbar">
             <div className="canvas-toolbar-left">
               <div className="page-navigation">
-                <button type="button" className="toolbar-icon-button" onClick={() => { setPageIndex((index) => Math.max(0, index - 1)); setSelectedId(null); }} disabled={pageIndex <= 0} aria-label="Previous page" title="Previous page">
+                <button type="button" className="toolbar-icon-button" onClick={() => goToPage(pageIndex - 1)} disabled={pageIndex <= 0} aria-label="Previous page" title="Previous page">
                   <ChevronLeft size={16} />
                 </button>
                 <span className="page-number-display"><strong>{String(pageIndex + 1).padStart(2, '0')}</strong><span>/</span>{String(pageCount).padStart(2, '0')}</span>
-                <button type="button" className="toolbar-icon-button" onClick={() => { setPageIndex((index) => Math.min(pageCount - 1, index + 1)); setSelectedId(null); }} disabled={pageIndex >= pageCount - 1} aria-label="Next page" title="Next page">
+                <button type="button" className="toolbar-icon-button" onClick={() => goToPage(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} aria-label="Next page" title="Next page">
                   <ChevronRight size={16} />
                 </button>
               </div>
               <span className="toolbar-divider" />
-              <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{activeTool.label}</span><span className="tool-caption-hint">{tool === 'select' ? 'Click an item to select it' : 'Click or drag on the page'}</span></div>
+              <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{activeTool.label}</span><span className="tool-caption-hint">{tool === 'select' ? 'Click an item to select it' : tool === 'edit-text' ? 'Click existing text to replace it' : ['highlight', 'whiteout', 'shape', 'draw'].includes(tool) ? 'Click and drag on the page' : 'Click to place on the page'}</span></div>
             </div>
             <div className="canvas-toolbar-right">
               <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom - 10)} disabled={zoom <= 40} aria-label="Zoom out" title="Zoom out">
@@ -1152,32 +1596,41 @@ function App() {
 
           <div className="canvas-workspace" onDoubleClick={(event) => { if (event.target === event.currentTarget) handleFit(); }}>
             <div className="workspace-topline"><span><span className="workspace-live-dot" /> LIVE PREVIEW</span><span>{pageInfo}</span></div>
-            <div className="page-stage">
+            <div id="page-stage" ref={pageStageRef} className="page-stage" onScroll={handlePageStageScroll}>
               {!pdfDocument ? (
                 <div className="loading-document"><LoaderCircle className="spin" size={24} /><span>Preparing your workspace…</span></div>
               ) : (
-                <div className="pdf-page-shell" style={{ width: pageSize.width, height: pageSize.height }}>
-                  <canvas ref={canvasRef} className="pdf-canvas" />
-                  <AnnotationLayer
-                    annotations={annotations}
-                    currentPage={pageIndex}
-                    pageSize={pageSize}
-                    zoom={zoom}
-                    tool={tool}
-                    currentColor={currentColor}
-                    selectedId={selectedId}
-                    setSelectedId={setSelectedId}
-                    addAnnotation={addAnnotation}
-                    commitAnnotations={commitAnnotations}
-                    updateAnnotation={updateAnnotation}
-                    removeAnnotation={removeAnnotation}
-                  />
+                <div className="document-page-stack">
+                  {Array.from({ length: pageCount }, (_, index) => (
+                    <PdfPage
+                      key={`${index}-${pageCount}`}
+                      pdfDocument={pdfDocument}
+                      pageIndex={index}
+                      pageStageRef={pageStageRef}
+                      zoom={zoom}
+                      active={pageIndex === index}
+                      annotations={annotations}
+                      tool={tool}
+                      currentColor={currentColor}
+                      selectedId={selectedId}
+                      setSelectedId={setSelectedId}
+                      setSelectedPdfTextItem={setSelectedPdfTextItem}
+                      addAnnotation={addAnnotation}
+                      commitAnnotations={commitAnnotations}
+                      updateAnnotation={updateAnnotation}
+                      removeAnnotation={removeAnnotation}
+                      onPageSize={updatePageSize}
+                      onTextItems={handleTextItemsLoaded}
+                      onTextLoading={handleTextLoading}
+                      onEditPdfText={handleEditPdfText}
+                    />
+                  ))}
                 </div>
               )}
             </div>
             <div className="workspace-bottomline">
-              <span><ShieldCheck size={13} /> Edits preview instantly</span>
-              <span>Drop a PDF anywhere to open it</span>
+              <span><ShieldCheck size={14} /> Edits preview instantly</span>
+              <span>Scroll to move through pages · Drop a PDF anywhere to open it</span>
             </div>
           </div>
           <div className="mobile-tool-dock" aria-label="PDF editing tools">
@@ -1198,18 +1651,18 @@ function App() {
               <>
                 <div className="selection-card">
                   <div className={`selection-icon selection-${selectedAnnotation.type}`}>
-                    {selectedAnnotation.type === 'text' ? <Type size={17} /> : selectedAnnotation.type === 'highlight' ? <Highlighter size={17} /> : selectedAnnotation.type === 'whiteout' ? <Eraser size={17} /> : selectedAnnotation.type === 'draw' ? <Pencil size={17} /> : selectedAnnotation.type === 'shape' ? <Square size={17} /> : selectedAnnotation.type === 'signature' ? <PenTool size={17} /> : selectedAnnotation.type === 'eraser' ? <Trash2 size={17} /> : <MessageSquareText size={17} />}
+                    {selectedAnnotation.type === 'text' || selectedAnnotation.type === 'source-text' || selectedAnnotation.type === 'replacement' ? <Type size={17} /> : selectedAnnotation.type === 'highlight' ? <Highlighter size={17} /> : selectedAnnotation.type === 'whiteout' ? <Eraser size={17} /> : selectedAnnotation.type === 'draw' ? <Pencil size={17} /> : selectedAnnotation.type === 'shape' ? <Square size={17} /> : selectedAnnotation.type === 'signature' ? <PenTool size={17} /> : selectedAnnotation.type === 'eraser' ? <Trash2 size={17} /> : <MessageSquareText size={17} />}
                   </div>
-                  <div><strong>{selectedAnnotation.type === 'note' ? 'Sticky note' : selectedAnnotation.type === 'text' ? 'Text box' : selectedAnnotation.type === 'signature' ? 'Signature' : selectedAnnotation.type === 'draw' ? 'Freehand mark' : selectedAnnotation.type === 'highlight' ? 'Highlight' : selectedAnnotation.type === 'whiteout' ? 'Content cover' : 'Rectangle'}</strong><span>Page {selectedAnnotation.pageIndex + 1}</span></div>
-                  <button className="mini-delete" type="button" onClick={() => removeAnnotation(selectedAnnotation.id)} title="Delete item" aria-label="Delete selected item"><Trash2 size={15} /></button>
+                  <div><strong>{selectedAnnotation.type === 'note' ? 'Sticky note' : selectedAnnotation.type === 'text' ? 'Text box' : selectedAnnotation.type === 'source-text' ? 'Selected PDF text' : selectedAnnotation.type === 'replacement' ? 'PDF text replacement' : selectedAnnotation.type === 'signature' ? 'Signature' : selectedAnnotation.type === 'draw' ? 'Freehand mark' : selectedAnnotation.type === 'highlight' ? 'Highlight' : selectedAnnotation.type === 'whiteout' ? 'Content cover' : 'Rectangle'}</strong><span>Page {selectedAnnotation.pageIndex + 1}</span></div>
+                  {selectedAnnotation.id && <button className="mini-delete" type="button" onClick={() => removeAnnotation(selectedAnnotation.id)} title="Delete item" aria-label="Delete selected item"><Trash2 size={15} /></button>}
                 </div>
 
-                {['text', 'signature', 'note'].includes(selectedAnnotation.type) && (
+                {['text', 'signature', 'note', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
                   <div className="property-field text-property-field">
-                    <label htmlFor="annotation-copy">{selectedAnnotation.type === 'signature' ? 'SIGNATURE' : selectedAnnotation.type === 'note' ? 'NOTE CONTENT' : 'TEXT CONTENT'}</label>
+                    <label htmlFor="annotation-copy">{selectedAnnotation.type === 'signature' ? 'SIGNATURE' : selectedAnnotation.type === 'note' ? 'NOTE CONTENT' : selectedAnnotation.type === 'replacement' || selectedAnnotation.type === 'source-text' ? 'REPLACEMENT TEXT' : 'TEXT CONTENT'}</label>
                     <textarea
                       id="annotation-copy"
-                      rows={selectedAnnotation.type === 'note' ? 4 : 3}
+                      rows={selectedAnnotation.type === 'note' || selectedAnnotation.type === 'replacement' || selectedAnnotation.type === 'source-text' ? 4 : 3}
                       value={selectedAnnotation.text || ''}
                       onChange={(event) => updateSelectedAnnotation({ text: event.target.value })}
                       onBlur={finishPropertyEdit}
@@ -1219,11 +1672,58 @@ function App() {
                   </div>
                 )}
 
-                {['text', 'signature'].includes(selectedAnnotation.type) && (
+                {['text', 'signature', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
                   <div className="property-field">
                     <div className="slider-heading"><label htmlFor="text-size">SIZE</label><span>{selectedAnnotation.size || 22} pt</span></div>
-                    <input id="text-size" className="range-input" type="range" min="12" max="52" step="1" value={selectedAnnotation.size || 22} onChange={(event) => updateSelectedAnnotation({ size: Number(event.target.value) })} onBlur={finishPropertyEdit} />
+                    <input id="text-size" className="range-input" type="range" min="6" max="72" step="1" value={selectedAnnotation.size || 22} onChange={(event) => updateSelectedAnnotation({ size: Number(event.target.value) })} onBlur={finishPropertyEdit} />
                     <div className="range-scale"><span>Small</span><span>Large</span></div>
+                  </div>
+                )}
+
+                {['text', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
+                  <div className="font-formatting-section">
+                    <div className="inspector-section-title">FONT FORMATTING</div>
+                    <label className="format-label" htmlFor="font-family">FONT FAMILY</label>
+                    <select
+                      id="font-family"
+                      className="font-select"
+                      value={selectedAnnotation.fontFamily || 'Arial'}
+                      onChange={(event) => updateSelectedAnnotation({ fontFamily: event.target.value })}
+                      onBlur={finishPropertyEdit}
+                    >
+                      <option value="Arial">Arial / Sans</option>
+                      <option value="Times New Roman">Times New Roman / Serif</option>
+                      <option value="Courier New">Courier New / Monospace</option>
+                    </select>
+                    <div className="format-toggle-row">
+                      <button type="button" className={`format-toggle ${selectedAnnotation.bold ? 'active' : ''}`} onClick={() => { updateSelectedAnnotation({ bold: !selectedAnnotation.bold }); finishPropertyEdit(); }}><b>B</b><span>Bold</span></button>
+                      <button type="button" className={`format-toggle italic-toggle ${selectedAnnotation.italic ? 'active' : ''}`} onClick={() => { updateSelectedAnnotation({ italic: !selectedAnnotation.italic }); finishPropertyEdit(); }}><i>I</i><span>Italic</span></button>
+                    </div>
+                    <div className="format-alignment" role="group" aria-label="Text alignment">
+                      {['left', 'center', 'right'].map((align) => (
+                        <button key={align} type="button" className={selectedAnnotation.align === align || (!selectedAnnotation.align && align === 'left') ? 'active' : ''} onClick={() => { updateSelectedAnnotation({ align }); finishPropertyEdit(); }} aria-label={`Align ${align}`} title={`Align ${align}`}>
+                          {align === 'left' ? 'L' : align === 'center' ? 'C' : 'R'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {['text', 'signature', 'note', 'replacement', 'source-text'].includes(selectedAnnotation.type) && (
+                  <div className="property-field">
+                    <div className="slider-heading"><label htmlFor="text-box-width">BOX WIDTH</label><span>{Math.round(selectedAnnotation.w * 100)}% page</span></div>
+                    <input
+                      id="text-box-width"
+                      className="range-input"
+                      type="range"
+                      min="5"
+                      max={Math.max(5, Math.floor((1 - selectedAnnotation.x) * 100))}
+                      step="1"
+                      value={Math.min(Math.max(5, Math.floor((1 - selectedAnnotation.x) * 100)), Math.max(5, Math.round(selectedAnnotation.w * 100)))}
+                      onChange={(event) => updateSelectedAnnotation({ w: Number(event.target.value) / 100 })}
+                      onBlur={finishPropertyEdit}
+                    />
+                    <div className="range-scale"><span>Narrow</span><span>Wide</span></div>
                   </div>
                 )}
 
@@ -1243,7 +1743,7 @@ function App() {
                   </div>
                 )}
 
-                <div className="inspector-tip"><Info size={15} /><span>{selectedAnnotation.type === 'whiteout' ? 'This masks the original page visually. Add a text box on top to replace it in the downloaded copy.' : 'Drag the item on the page to reposition it. It will be included in your downloaded PDF.'}</span></div>
+                <div className="inspector-tip"><Info size={15} /><span>{selectedAnnotation.type === 'whiteout' ? 'This masks the original page visually. Add a text box on top to replace it in the downloaded copy.' : selectedAnnotation.type === 'source-text' ? 'Selection only—nothing changes on the page until you edit the text. Use Box Width to control how your replacement wraps.' : selectedAnnotation.type === 'replacement' ? 'The original run is covered and new text is drawn. Widen the box to control wrapping. This is not secure redaction.' : 'Drag the item on the page to reposition it. It will be included in your downloaded PDF.'}</span></div>
               </>
             ) : (
               <>
@@ -1251,6 +1751,16 @@ function App() {
                   <div className="page-summary-paper"><FileText size={20} strokeWidth={1.5} /><span>{String(pageIndex + 1).padStart(2, '0')}</span></div>
                   <div className="page-summary-copy"><strong>Page {String(pageIndex + 1).padStart(2, '0')}</strong><span>{pageInfo}</span><small>{pageCount} {pageCount === 1 ? 'page' : 'pages'} in this document</small></div>
                 </div>
+
+                {tool === 'edit-text' && (
+                  <div className={`text-edit-status ${!pdfTextItems.length && !textItemsLoading ? 'empty' : ''}`}>
+                    <Type size={16} />
+                    <span>
+                      <strong>{textItemsLoading ? 'Reading page text…' : pdfTextItems.length ? `${pdfTextItems.length} text runs found` : 'No selectable text found'}</strong>
+                      <small>{textItemsLoading ? 'Loading searchable text from this page.' : pdfTextItems.length ? 'Click a text run on the page to edit it.' : 'Scanned pages need OCR before their text can be edited.'}</small>
+                    </span>
+                  </div>
+                )}
 
                 <Palette value={currentColor} onChange={setAnnotationColor} label="QUICK COLOR" />
 
