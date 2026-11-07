@@ -226,108 +226,6 @@ function drawWrappedText(page, text, options) {
   });
 }
 
-async function createStarterPdf() {
-  const document = await PDFDocument.create();
-  const regular = await document.embedFont(StandardFonts.Helvetica);
-  const bold = await document.embedFont(StandardFonts.HelveticaBold);
-  const serif = await document.embedFont(StandardFonts.TimesRoman);
-  const serifBold = await document.embedFont(StandardFonts.TimesRomanBold);
-  const ink = colorToRgb('#282923');
-  const muted = colorToRgb('#77766F');
-  const coral = colorToRgb('#E67C61');
-  const cream = colorToRgb('#F7F5EF');
-  const green = colorToRgb('#758D78');
-  const lavender = colorToRgb('#EDEAF8');
-
-  // Cover page — warm editorial stationery that doubles as a useful editing canvas.
-  const cover = document.addPage([612, 792]);
-  cover.drawRectangle({ x: 0, y: 0, width: 612, height: 792, color: cream });
-  cover.drawRectangle({ x: 0, y: 0, width: 12, height: 792, color: coral });
-  cover.drawText('FIELDNOTES', { x: 58, y: 722, size: 11, font: bold, color: ink, characterSpacing: 1.4 });
-  cover.drawText('A SMALL GUIDE TO LIVING WELL', { x: 58, y: 704, size: 8, font: regular, color: muted, characterSpacing: 0.8 });
-  cover.drawText('ISSUE 01   /   2025', { x: 457, y: 722, size: 8, font: bold, color: muted });
-  cover.drawLine({ start: { x: 58, y: 688 }, end: { x: 554, y: 688 }, thickness: 0.8, color: colorToRgb('#D9D7D0') });
-
-  cover.drawCircle({ x: 472, y: 534, size: 92, color: colorToRgb('#E8B7A7') });
-  cover.drawCircle({ x: 493, y: 553, size: 57, color: colorToRgb('#D9D9C7') });
-  cover.drawCircle({ x: 453, y: 510, size: 27, color: colorToRgb('#D4C9E9') });
-  cover.drawText('A slower', { x: 58, y: 559, size: 54, font: serifBold, color: ink });
-  cover.drawText('kind of living.', { x: 58, y: 501, size: 47, font: serif, color: ink });
-  cover.drawText('Thoughtful spaces, everyday rituals, and the beauty', { x: 60, y: 454, size: 12, font: regular, color: muted });
-  cover.drawText('of making a little more room for what matters.', { x: 60, y: 437, size: 12, font: regular, color: muted });
-  cover.drawText('A FIELD GUIDE FOR THE PRESENT MOMENT', { x: 60, y: 365, size: 8, font: bold, color: coral, characterSpacing: 1.15 });
-  cover.drawRectangle({ x: 58, y: 183, width: 496, height: 142, color: colorToRgb('#EEECE4') });
-  cover.drawText('IN THIS ISSUE', { x: 78, y: 296, size: 8, font: bold, color: muted, characterSpacing: 1.1 });
-  cover.drawText('01', { x: 78, y: 260, size: 19, font: serif, color: coral });
-  cover.drawText('Make room for light', { x: 112, y: 264, size: 12, font: bold, color: ink });
-  cover.drawText('02', { x: 78, y: 231, size: 19, font: serif, color: coral });
-  cover.drawText('Keep only what you love', { x: 112, y: 235, size: 12, font: bold, color: ink });
-  cover.drawText('03', { x: 78, y: 202, size: 19, font: serif, color: coral });
-  cover.drawText('A softer kind of everyday', { x: 112, y: 206, size: 12, font: bold, color: ink });
-  cover.drawLine({ start: { x: 58, y: 65 }, end: { x: 554, y: 65 }, thickness: 0.8, color: colorToRgb('#D9D7D0') });
-  cover.drawText('FIELDNOTES  /  A SLOW-LIVING JOURNAL', { x: 58, y: 45, size: 7, font: regular, color: muted, characterSpacing: 0.7 });
-  cover.drawText('01', { x: 536, y: 45, size: 8, font: bold, color: ink });
-
-  // Editorial page.
-  const article = document.addPage([612, 792]);
-  article.drawRectangle({ x: 0, y: 0, width: 612, height: 792, color: colorToRgb('#FFFFFF') });
-  article.drawText('FIELDNOTES', { x: 58, y: 729, size: 9, font: bold, color: ink, characterSpacing: 1.2 });
-  article.drawText('01  /  MAKE ROOM', { x: 438, y: 729, size: 8, font: regular, color: muted });
-  article.drawLine({ start: { x: 58, y: 711 }, end: { x: 554, y: 711 }, thickness: 0.8, color: colorToRgb('#E2E0DA') });
-  article.drawText('The beauty of', { x: 58, y: 633, size: 42, font: serifBold, color: ink });
-  article.drawText('leaving space.', { x: 58, y: 588, size: 42, font: serif, color: ink });
-  article.drawText('A home does not have to be finished to feel complete.', { x: 60, y: 542, size: 11, font: regular, color: muted });
-  article.drawText('Sometimes the most generous thing we can do is let a', { x: 60, y: 522, size: 11, font: regular, color: muted });
-  article.drawText('room breathe — and let the things we love stand out.', { x: 60, y: 502, size: 11, font: regular, color: muted });
-  article.drawRectangle({ x: 58, y: 342, width: 496, height: 112, color: lavender });
-  article.drawRectangle({ x: 58, y: 342, width: 4, height: 112, color: colorToRgb('#8C7DD7') });
-  article.drawText('“', { x: 78, y: 397, size: 42, font: serif, color: colorToRgb('#8C7DD7') });
-  article.drawText('A little less, chosen with care,', { x: 119, y: 403, size: 17, font: serif, color: ink });
-  article.drawText('can make a lot more room for joy.', { x: 119, y: 379, size: 17, font: serif, color: ink });
-  article.drawText('A NOTE TO KEEP CLOSE', { x: 120, y: 358, size: 7, font: bold, color: muted, characterSpacing: 1.0 });
-  article.drawText('THREE SMALL STARTS', { x: 58, y: 291, size: 8, font: bold, color: coral, characterSpacing: 1.1 });
-  article.drawLine({ start: { x: 58, y: 278 }, end: { x: 554, y: 278 }, thickness: 0.7, color: colorToRgb('#E2E0DA') });
-  const columnX = [58, 229, 400];
-  const labels = [
-    ['01', 'LET LIGHT IN', 'Keep the window clear.\nNotice how the room\nchanges through the day.'],
-    ['02', 'EDIT GENTLY', 'Give every object a\nreason to be here — and\nspace to be itself.'],
-    ['03', 'MAKE IT YOURS', 'A well-loved thing is\nnever out of place.\nLet your life show.'],
-  ];
-  labels.forEach((item, index) => {
-    const x = columnX[index];
-    article.drawText(item[0], { x, y: 248, size: 17, font: serif, color: green });
-    article.drawText(item[1], { x, y: 222, size: 8, font: bold, color: ink, characterSpacing: 0.7 });
-    item[2].split('\n').forEach((line, lineIndex) => {
-      article.drawText(line, { x, y: 198 - lineIndex * 16, size: 9, font: regular, color: muted });
-    });
-  });
-  article.drawLine({ start: { x: 58, y: 65 }, end: { x: 554, y: 65 }, thickness: 0.8, color: colorToRgb('#E2E0DA') });
-  article.drawText('A SMALL GUIDE TO LIVING WELL', { x: 58, y: 45, size: 7, font: regular, color: muted, characterSpacing: 0.7 });
-  article.drawText('02', { x: 536, y: 45, size: 8, font: bold, color: ink });
-
-  // Closing page.
-  const closing = document.addPage([612, 792]);
-  closing.drawRectangle({ x: 0, y: 0, width: 612, height: 792, color: colorToRgb('#46564C') });
-  closing.drawCircle({ x: 516, y: 700, size: 76, color: colorToRgb('#728677') });
-  closing.drawCircle({ x: 539, y: 678, size: 34, color: colorToRgb('#E6B84A') });
-  closing.drawText('FIELDNOTES  /  A LAST THOUGHT', { x: 58, y: 718, size: 8, font: bold, color: colorToRgb('#E6E4DA'), characterSpacing: 1.0 });
-  closing.drawLine({ start: { x: 58, y: 696 }, end: { x: 554, y: 696 }, thickness: 0.8, color: colorToRgb('#748176') });
-  closing.drawText('The most', { x: 58, y: 549, size: 49, font: serif, color: colorToRgb('#F7F5EF') });
-  closing.drawText('meaningful spaces', { x: 58, y: 496, size: 43, font: serifBold, color: colorToRgb('#F7F5EF') });
-  closing.drawText('are not the ones', { x: 58, y: 444, size: 43, font: serif, color: colorToRgb('#F7F5EF') });
-  closing.drawText('filled with things —', { x: 58, y: 392, size: 43, font: serif, color: colorToRgb('#F7F5EF') });
-  closing.drawText('but with the things', { x: 58, y: 340, size: 43, font: serif, color: colorToRgb('#F7F5EF') });
-  closing.drawText('you choose to keep.', { x: 58, y: 288, size: 43, font: serifBold, color: colorToRgb('#E9BD72') });
-  closing.drawLine({ start: { x: 58, y: 209 }, end: { x: 107, y: 209 }, thickness: 2, color: coral });
-  closing.drawText('A GENTLE REMINDER TO COME BACK TO YOURSELF.', { x: 58, y: 183, size: 8, font: bold, color: colorToRgb('#D2D7CE'), characterSpacing: 0.9 });
-  closing.drawText('— FIELDNOTES, ISSUE 01', { x: 58, y: 146, size: 10, font: regular, color: colorToRgb('#D2D7CE') });
-  closing.drawLine({ start: { x: 58, y: 65 }, end: { x: 554, y: 65 }, thickness: 0.8, color: colorToRgb('#748176') });
-  closing.drawText('TAKE WHAT YOU NEED. LEAVE THE REST.', { x: 58, y: 45, size: 7, font: regular, color: colorToRgb('#D2D7CE'), characterSpacing: 0.7 });
-  closing.drawText('03', { x: 536, y: 45, size: 8, font: bold, color: colorToRgb('#F7F5EF') });
-
-  return document.save();
-}
-
 function PageThumbnail({ document, pageNumber, active, onClick }) {
   const buttonRef = useRef(null);
   const canvasRef = useRef(null);
@@ -579,7 +477,7 @@ function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColo
 
       <div className="mobile-properties-controls">
         {hasFontFormatting && (
-          <>
+          <div className="mobile-property-format-row">
             <select
               className="mobile-property-font"
               value={annotation.fontFamily || 'Arial'}
@@ -602,7 +500,7 @@ function MobilePropertiesBar({ annotation, label, currentColor, onUpdate, onColo
                 </button>
               ))}
             </div>
-          </>
+          </div>
         )}
 
         {hasSize && (
@@ -1035,7 +933,7 @@ function App() {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [pdfBytes, setPdfBytes] = useState(null);
   const [pageSizes, setPageSizes] = useState({});
-  const [documentName, setDocumentName] = useState('Fieldnotes — a slower kind of living.pdf');
+  const [documentName, setDocumentName] = useState('Untitled.pdf');
   const [pageIndex, setPageIndex] = useState(0);
   const [zoom, setZoom] = useState(82);
   const [tool, setTool] = useState('select');
@@ -1146,27 +1044,6 @@ function App() {
       setSelectedId(null);
     }
   }, [pageIndex]);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const bytes = await createStarterPdf();
-        const freshBytes = Uint8Array.from(bytes);
-        const loadedDocument = await pdfjsLib.getDocument({ data: freshBytes.slice() }).promise;
-        if (!alive) return;
-        setPdfBytes(freshBytes);
-        setPdfDocument(loadedDocument);
-      } catch (error) {
-        console.error(error);
-        if (alive) showToast('Could not open the sample document. Try uploading a PDF.');
-      }
-    })();
-    return () => {
-      alive = false;
-      window.clearTimeout(toastTimerRef.current);
-    };
-  }, [showToast]);
 
   useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
 
@@ -1594,11 +1471,12 @@ function App() {
   };
 
   const pageInfo = useMemo(() => {
+    if (!pdfDocument) return 'No PDF loaded';
     if (!pageSize.width || !pageSize.height || !zoom) return 'PDF page';
     const width = Math.round(pageSize.width / (zoom / 100));
     const height = Math.round(pageSize.height / (zoom / 100));
     return `${width} × ${height} pt`;
-  }, [pageSize, zoom]);
+  }, [pdfDocument, pageSize, zoom]);
 
   return (
     <div
@@ -1687,18 +1565,21 @@ function App() {
                 <Plus size={15} />
               </button>
             </div>
-            <div className="page-thumbnails">
-              {pdfDocument && Array.from({ length: pageCount }, (_, index) => (
-                <PageThumbnail
-                  key={`${index}-${pageCount}`}
-                  document={pdfDocument}
-                  pageNumber={index + 1}
-                  active={pageIndex === index}
-                  onClick={() => goToPage(index)}
-                />
-              ))}
-              {!pdfDocument && <div className="thumb-loading"><LoaderCircle className="spin" size={18} /> Preparing pages</div>}
-            </div>
+            {pdfDocument ? (
+              <div className="page-thumbnails">
+                {Array.from({ length: pageCount }, (_, index) => (
+                  <PageThumbnail
+                    key={`${index}-${pageCount}`}
+                    document={pdfDocument}
+                    pageNumber={index + 1}
+                    active={pageIndex === index}
+                    onClick={() => goToPage(index)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="empty-pages-hint"><FileText size={16} /><span>Pages appear here after you open a PDF.</span></div>
+            )}
             <button className="add-page-wide" type="button" onClick={handleAddPage} disabled={!pdfDocument || busy}>
               <Plus size={15} /> Add blank page
             </button>
@@ -1716,7 +1597,7 @@ function App() {
                 <button type="button" className="toolbar-icon-button" onClick={() => goToPage(pageIndex - 1)} disabled={pageIndex <= 0} aria-label="Previous page" title="Previous page">
                   <ChevronLeft size={16} />
                 </button>
-                <span className="page-number-display"><strong>{String(pageIndex + 1).padStart(2, '0')}</strong><span>/</span>{String(pageCount).padStart(2, '0')}</span>
+                <span className="page-number-display"><strong>{pdfDocument ? String(pageIndex + 1).padStart(2, '0') : '00'}</strong><span>/</span>{String(pageCount).padStart(2, '0')}</span>
                 <button type="button" className="toolbar-icon-button" onClick={() => goToPage(pageIndex + 1)} disabled={pageIndex >= pageCount - 1} aria-label="Next page" title="Next page">
                   <ChevronRight size={16} />
                 </button>
@@ -1725,15 +1606,15 @@ function App() {
               <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{activeTool.label}</span><span className="tool-caption-hint">{tool === 'select' ? 'Click an item to select it' : ['highlight', 'whiteout', ...SHAPE_TOOL_IDS, ...FREEHAND_TOOL_IDS].includes(tool) ? 'Click and drag on the page' : 'Click to place on the page'}</span></div>
             </div>
             <div className="canvas-toolbar-right">
-              <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom - 10)} disabled={zoom <= 40} aria-label="Zoom out" title="Zoom out">
+              <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom - 10)} disabled={!pdfDocument || zoom <= 40} aria-label="Zoom out" title="Zoom out">
                 <ZoomOut size={16} />
               </button>
-              <button type="button" className="zoom-value" onClick={handleFit} title="Fit page to workspace">{zoom}%</button>
-              <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom + 10)} disabled={zoom >= 200} aria-label="Zoom in" title="Zoom in">
+              <button type="button" className="zoom-value" onClick={handleFit} disabled={!pdfDocument} title="Fit page to workspace">{zoom}%</button>
+              <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom + 10)} disabled={!pdfDocument || zoom >= 200} aria-label="Zoom in" title="Zoom in">
                 <ZoomIn size={16} />
               </button>
               <span className="toolbar-divider" />
-              <button type="button" className="fit-button" onClick={handleFit}><span>Fit</span><span className="fit-glyph">↗</span></button>
+              <button type="button" className="fit-button" onClick={handleFit} disabled={!pdfDocument}><span>Fit</span><span className="fit-glyph">↗</span></button>
               <span className="toolbar-divider desktop-divider" />
               <button type="button" className="toolbar-icon-button delete-page-button" onClick={handleDeletePage} disabled={pageCount <= 1 || busy} title="Remove current page" aria-label="Remove current page">
                 <Trash2 size={15} />
@@ -1742,10 +1623,23 @@ function App() {
           </div>
 
           <div className="canvas-workspace" onDoubleClick={(event) => { if (event.target === event.currentTarget) handleFit(); }}>
-            <div className="workspace-topline"><span><span className="workspace-live-dot" /> LIVE PREVIEW</span><span>{pageInfo}</span></div>
-            <div id="page-stage" ref={pageStageRef} className="page-stage" onScroll={handlePageStageScroll}>
+            <div className="workspace-topline"><span><span className="workspace-live-dot" /> LIVE PREVIEW</span><span>{pdfDocument ? pageInfo : 'Awaiting a PDF'}</span></div>
+            <div id="page-stage" ref={pageStageRef} className={`page-stage ${pdfDocument ? '' : 'page-stage-empty'}`} onScroll={pdfDocument ? handlePageStageScroll : undefined}>
               {!pdfDocument ? (
-                <div className="loading-document"><LoaderCircle className="spin" size={24} /><span>Preparing your workspace…</span></div>
+                <section className="empty-pdf-card" aria-label="Upload or drop a PDF to begin">
+                  <div className="empty-pdf-mark">
+                    <span className="empty-pdf-paper"><FileText size={27} strokeWidth={1.7} /></span>
+                    <span className="empty-pdf-badge"><Upload size={14} /></span>
+                  </div>
+                  <span className="empty-pdf-eyebrow">YOUR PRIVATE PDF WORKSPACE</span>
+                  <h1>Start with your document.</h1>
+                  <p>Upload a PDF to add notes, shapes, highlights and signatures.</p>
+                  <button type="button" className="empty-pdf-upload" onClick={() => fileInputRef.current?.click()}>
+                    <Upload size={17} /> Choose a PDF
+                  </button>
+                  <div className="empty-pdf-drop-hint"><span /> Or drag and drop a PDF here</div>
+                  <div className="empty-pdf-privacy"><LockKeyhole size={13} /> Your file stays on this device</div>
+                </section>
               ) : (
                 <div className="document-page-stack">
                   {Array.from({ length: pageCount }, (_, index) => (
@@ -1772,8 +1666,8 @@ function App() {
               )}
             </div>
             <div className="workspace-bottomline">
-              <span><ShieldCheck size={14} /> Edits preview instantly</span>
-              <span>Scroll to move through pages · Drop a PDF anywhere to open it</span>
+              <span>{pdfDocument ? <><ShieldCheck size={14} /> Edits preview instantly</> : <><LockKeyhole size={14} /> Files stay on your device</>}</span>
+              <span>{pdfDocument ? 'Scroll to move through pages · Drop a PDF anywhere to open it' : 'Open a PDF or drag it into the live preview'}</span>
             </div>
           </div>
           {pdfDocument && selectedAnnotation ? (
@@ -1912,15 +1806,15 @@ function App() {
             ) : (
               <>
                 <div className="page-summary-card">
-                  <div className="page-summary-paper"><FileText size={20} strokeWidth={1.5} /><span>{String(pageIndex + 1).padStart(2, '0')}</span></div>
-                  <div className="page-summary-copy"><strong>Page {String(pageIndex + 1).padStart(2, '0')}</strong><span>{pageInfo}</span><small>{pageCount} {pageCount === 1 ? 'page' : 'pages'} in this document</small></div>
+                  <div className="page-summary-paper"><FileText size={20} strokeWidth={1.5} /><span>{pdfDocument ? String(pageIndex + 1).padStart(2, '0') : '—'}</span></div>
+                  <div className="page-summary-copy"><strong>{pdfDocument ? `Page ${String(pageIndex + 1).padStart(2, '0')}` : 'No PDF loaded'}</strong><span>{pdfDocument ? pageInfo : 'Upload a PDF to see page details'}</span><small>{pdfDocument ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} in this document` : 'Your files stay on this device'}</small></div>
                 </div>
 
                 <Palette value={currentColor} onChange={setAnnotationColor} label="QUICK COLOR" />
 
                 <div className="inspector-section-title"><span>PAGE ACTIONS</span></div>
                 <div className="page-action-list">
-                  <button type="button" className="page-action-button" onClick={handleAddPage} disabled={busy}>
+                  <button type="button" className="page-action-button" onClick={handleAddPage} disabled={busy || !pdfDocument}>
                     <span className="page-action-icon lavender"><FilePlus2 size={16} /></span><span><strong>Add a blank page</strong><small>Append a fresh page</small></span><Plus size={15} className="page-action-trailing" />
                   </button>
                   <button type="button" className="page-action-button" onClick={handleDuplicatePage} disabled={busy || !pdfDocument}>

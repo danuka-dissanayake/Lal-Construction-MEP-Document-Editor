@@ -30,6 +30,6 @@ This is a static Vite app and fits Vercel's free Hobby plan:
 - Add rectangles, squares, circles, ovals, lines, arrows, triangles, diamonds, pentagons, hexagons, and stars with adjustable stroke weight and color.
 - Format added text with font family, bold, italic, alignment, size, width, and color controls. Adjust highlight opacity and annotation colors.
 - Add, duplicate, and remove pages.
-- Use the mobile tool dock with text labels, an inline properties rail above the dock, page details when nothing is selected, and swipe-to-pan gestures on the page canvas.
+- Start in a clean workspace with a centered PDF upload card; open a file or drag and drop it into the live preview.
+- Use the mobile tool dock with text labels, a vertically scrollable inline properties rail above the dock, page details when a document is open and nothing is selected, and swipe-to-pan gestures on the page canvas.
 - Undo and redo annotation changes; download a new PDF with edits included.
-- A three-page sample document is generated locally on first load so the editor is ready to explore.
