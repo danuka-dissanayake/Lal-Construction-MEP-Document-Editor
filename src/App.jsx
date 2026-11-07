@@ -674,7 +674,12 @@ function AnnotationLayer({
     <div
       ref={layerRef}
       className={`annotation-layer tool-cursor-${tool}`}
-      style={{ width: pageSize.width, height: pageSize.height, cursor: TOOL_CURSORS[tool] || 'default' }}
+      style={{
+        width: pageSize.width,
+        height: pageSize.height,
+        cursor: TOOL_CURSORS[tool] || 'default',
+        touchAction: ['select', 'edit-text'].includes(tool) ? 'pan-x pan-y' : 'none',
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -699,7 +704,7 @@ function AnnotationLayer({
           aria-label={`Edit PDF text: ${item.text.slice(0, 90)}`}
           title={`Edit: ${item.text.slice(0, 90)}`}
           onPointerDown={(event) => {
-            event.preventDefault();
+            if (event.pointerType !== 'touch') event.preventDefault();
             event.stopPropagation();
             onEditPdfText(item);
           }}
@@ -1667,7 +1672,7 @@ function App() {
               </span>
               <span className="mobile-page-details-copy">
                 <strong>{selectedAnnotation ? mobileSelectionLabel : `Page ${String(pageIndex + 1).padStart(2, '0')} / ${String(pageCount).padStart(2, '0')}`}</strong>
-                <small>{selectedAnnotation ? `Page ${selectedAnnotation.pageIndex + 1} · Selected item` : `${pageInfo} · ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}`}</small>
+                <small>{selectedAnnotation ? `Page ${selectedAnnotation.pageIndex + 1} · Selected item` : `${pageInfo} · Swipe to pan`}</small>
               </span>
               <button type="button" className="mobile-page-details-action" onClick={() => setInspectorOpen(true)} aria-label={selectedAnnotation ? 'Open selected item properties' : 'Open page details'} title={selectedAnnotation ? 'Open properties' : 'Open page details'}>
                 <Info size={15} /><span>{selectedAnnotation ? 'Edit' : 'Details'}</span>

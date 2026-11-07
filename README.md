@@ -24,6 +24,6 @@ This is a static Vite app and fits Vercel's free Hobby plan:
 - Select and visually replace extractable text runs in uploaded PDFs (clicking only selects; original layout stays unchanged until you type), with adjustable text-box width; add text and typed signatures, highlight, draw, add rectangles and sticky notes, cover content with whiteout, then move or erase annotations.
 - Format added and replacement text with font family, bold, italic, and alignment controls; change annotation colors, text size, highlight opacity, and stroke weight.
 - Add, duplicate, and remove pages.
-- Use a mobile tool dock with text labels and a compact page/selection details bar.
+- Use a mobile tool dock with text labels, swipe-to-pan gestures on the page canvas, and a compact page/selection details bar.
 - Undo and redo annotation changes; download a new PDF with edits included.
 - A three-page sample document is generated locally on first load so the editor is ready to explore.
