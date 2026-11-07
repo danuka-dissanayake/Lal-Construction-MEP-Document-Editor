@@ -820,14 +820,36 @@ function AnnotationLayer({
     }
     const currentDraft = draftRef.current;
     if (!currentDraft || currentDraft.pointerId !== event.pointerId) return;
-    const { start, current, type, points } = currentDraft;
+    const pointerUpPoint = pointFromEvent(event);
+    const isFreehand = FREEHAND_TOOL_IDS.includes(currentDraft.type);
+    const points = [...currentDraft.points];
+    if (isFreehand) {
+      const lastPoint = points[points.length - 1] || currentDraft.start;
+      const endDistance = Math.hypot(
+        (pointerUpPoint.x - lastPoint.x) * pageSize.width,
+        (pointerUpPoint.y - lastPoint.y) * pageSize.height,
+      );
+      if (endDistance > 0.35) points.push(pointerUpPoint);
+      const hasVisibleSegment = points.some((point, index) => index > 0 && Math.hypot(
+        (point.x - points[0].x) * pageSize.width,
+        (point.y - points[0].y) * pageSize.height,
+      ) > 0.5);
+      if (!hasVisibleSegment) {
+        const nudgeX = Math.min(0.003, 1.5 / Math.max(pageSize.width, 1));
+        let dotX = currentDraft.start.x + nudgeX;
+        if (dotX > 1) dotX = currentDraft.start.x - nudgeX;
+        points.push({ x: clamp(dotX), y: currentDraft.start.y });
+      }
+    }
+    const completedDraft = { ...currentDraft, current: pointerUpPoint, points };
+    draftRef.current = completedDraft;
+    const { start, current, type } = completedDraft;
     const left = Math.min(start.x, current.x);
     const top = Math.min(start.y, current.y);
     const width = Math.abs(current.x - start.x);
     const height = Math.abs(current.y - start.y);
-    const isFreehand = FREEHAND_TOOL_IDS.includes(type);
     const isShape = SHAPE_TOOL_IDS.includes(type);
-    if (isFreehand ? points.length > 1 : width > 0.003 || height > 0.003) {
+    if (isFreehand || width > 0.003 || height > 0.003) {
       const annotation = {
         id: makeId(),
         type: isShape ? 'shape' : type,
