@@ -6,7 +6,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  overflow: auto;
+  overflow: hidden;
   padding: 42px 20px 26px;
   color: #292a27;
   background: radial-gradient(circle at 16% 8%, rgba(226, 220, 255, .78), transparent 32%), radial-gradient(circle at 91% 86%, rgba(221, 242, 229, .72), transparent 30%), #f5f4f1;
@@ -139,6 +139,3 @@
   .admin-search { width: 100%; flex-basis: 37px; }
   .admin-user-table { min-width: 650px; }
 }
-
-body:has(.auth-page), body:has(.admin-page) { min-height: 100vh; overflow-x: hidden; overflow-y: auto; }
-#root:has(.auth-page), #root:has(.admin-page) { height: auto; min-height: 100%; }

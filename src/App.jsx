@@ -1556,8 +1556,6 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
       <header className="topbar">
         <div className="brand-lockup">
           <img className="brand-logo" src="/assets/lal-construction-logo.jpeg" alt="Lal Construction &amp; Engineering (Pvt) Ltd" />
-          <div className="brand-divider" aria-hidden="true" />
-          <div className="workspace-label">MEP DOCUMENT EDITOR</div>
         </div>
 
         <div className="document-title-wrap">
