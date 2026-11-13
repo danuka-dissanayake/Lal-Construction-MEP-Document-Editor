@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function userProfilePath(uid) {
+      return /databases/$(database)/documents/userProfiles/$(uid);
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(userProfilePath(request.auth.uid))
+        && get(userProfilePath(request.auth.uid)).data.role == 'admin';
+    }
+
+    function validUserRole(role) {
+      return role in ['edit', 'preview', 'edit-preview'];
+    }
+
+    match /userProfiles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+
+      // Users may create only their own default Preview profile at signup.
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.role == 'preview';
+
+      // Only an existing admin can change another user's role. Admin roles are
+      // bootstrapped manually in Firestore and cannot be granted by this UI.
+      allow update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'role', 'createdAt', 'updatedAt'])
+        && request.resource.data.email == resource.data.email
+        && (
+          validUserRole(request.resource.data.role)
+          || (resource.data.role == 'admin' && request.resource.data.role == 'admin')
+        );
+
+      allow delete: if false;
+    }
+  }
+}

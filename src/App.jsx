@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowUpRight,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -15,6 +16,7 @@ import {
   LoaderCircle,
   Hexagon,
   LockKeyhole,
+  LogOut,
   MessageSquareText,
   Minus,
   MousePointer2,
@@ -31,6 +33,7 @@ import {
   Type,
   Undo2,
   Upload,
+  Users,
   X,
   ZoomIn,
   ZoomOut,
@@ -38,6 +41,7 @@ import {
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import * as pdfjsLib from 'pdfjs-dist';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { canDownloadEdited, canDownloadOriginal, canEdit, ROLE_LABELS } from './auth/roles.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -299,6 +303,7 @@ function PdfPage({
   active,
   annotations,
   tool,
+  readOnly,
   currentColor,
   selectedId,
   setSelectedId,
@@ -398,6 +403,7 @@ function PdfPage({
             pageSize={pageSize}
             zoom={zoom}
             tool={tool}
+            readOnly={readOnly}
             currentColor={currentColor}
             selectedId={selectedId}
             setSelectedId={setSelectedId}
@@ -554,6 +560,7 @@ function AnnotationLayer({
   pageSize,
   zoom,
   tool,
+  readOnly,
   currentColor,
   selectedId,
   setSelectedId,
@@ -772,7 +779,7 @@ function AnnotationLayer({
 
   const pageAnnotations = annotations.filter((annotation) => annotation.pageIndex === currentPage);
   const draftPath = (points = []) => points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x * 1000} ${point.y * 1000}`).join(' ');
-  const interactive = tool === 'select' || tool === 'eraser';
+  const interactive = !readOnly && (tool === 'select' || tool === 'eraser');
 
   return (
     <div
@@ -782,6 +789,7 @@ function AnnotationLayer({
         width: pageSize.width,
         height: pageSize.height,
         cursor: TOOL_CURSORS[tool] || 'default',
+        pointerEvents: readOnly ? 'none' : 'auto',
         touchAction: tool === 'select' ? 'pan-x pan-y' : 'none',
       }}
       onPointerDown={handlePointerDown}
@@ -929,9 +937,15 @@ function AnnotationLayer({
   );
 }
 
-function App() {
+function App({ user, profile, onSignOut, onOpenAdminPanel }) {
+  const role = profile?.role || 'preview';
+  const canEditPdf = canEdit(role);
+  const canDownloadOriginalPdf = canDownloadOriginal(role);
+  const canDownloadEditedPdf = canDownloadEdited(role);
   const [pdfDocument, setPdfDocument] = useState(null);
   const [pdfBytes, setPdfBytes] = useState(null);
+  const [originalPdfBytes, setOriginalPdfBytes] = useState(null);
+  const [originalDocumentName, setOriginalDocumentName] = useState('Untitled.pdf');
   const [pageSizes, setPageSizes] = useState({});
   const [documentName, setDocumentName] = useState('Untitled.pdf');
   const [pageIndex, setPageIndex] = useState(0);
@@ -952,11 +966,15 @@ function App() {
   const pendingPageScrollRef = useRef(null);
   const toastTimerRef = useRef(null);
   const propertyEditSnapshotRef = useRef(null);
+  const editableRoleRef = useRef(canEditPdf);
 
   const pageCount = pdfDocument?.numPages || 0;
   const pageSize = pageSizes[pageIndex] || { width: 612 * zoom / 100, height: 792 * zoom / 100 };
   const selectedAnnotation = annotations.find((item) => item.id === selectedId) || null;
   const activeTool = TOOL_OPTIONS.find((item) => item.id === tool) || TOOL_OPTIONS[0];
+  const sessionLabel = profile?.displayName || user?.email || 'Workspace user';
+  const roleLabel = role === 'admin' ? 'Admin' : ROLE_LABELS[role] || 'Preview';
+  const primaryDownloadLabel = canDownloadEditedPdf ? 'Download edited PDF' : 'Download original';
   const mobileSelectionLabel = selectedAnnotation
     ? selectedAnnotation.type === 'shape'
       ? SHAPE_LABELS[selectedAnnotation.shapeType] || 'Shape'
@@ -1048,18 +1066,21 @@ function App() {
   useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
 
   const commitAnnotations = useCallback((snapshot) => {
+    if (!canEditPdf) return;
     setUndoStack((stack) => [...stack, snapshot].slice(-60));
     setRedoStack([]);
     setDirty(true);
-  }, []);
+  }, [canEditPdf]);
 
   const addAnnotation = (annotation) => {
+    if (!canEditPdf) return;
     commitAnnotations(annotations);
     setAnnotations((items) => [...items, annotation]);
     setDirty(true);
   };
 
   const removeAnnotation = (id) => {
+    if (!canEditPdf) return;
     const next = annotations.filter((item) => item.id !== id);
     if (next.length === annotations.length) return;
     commitAnnotations(annotations);
@@ -1069,23 +1090,25 @@ function App() {
   };
 
   const updateAnnotation = (id, patch) => {
+    if (!canEditPdf) return;
     setAnnotations((items) => items.map((item) => (item.id === id ? { ...item, ...patch } : item)));
     setDirty(true);
   };
 
   const updateSelectedAnnotation = (patch) => {
-    if (!selectedAnnotation) return;
+    if (!canEditPdf || !selectedAnnotation) return;
     if (!propertyEditSnapshotRef.current) propertyEditSnapshotRef.current = annotations;
     updateAnnotation(selectedAnnotation.id, { ...patch, edited: true });
   };
 
   const finishPropertyEdit = () => {
     if (!propertyEditSnapshotRef.current) return;
-    commitAnnotations(propertyEditSnapshotRef.current);
+    if (canEditPdf) commitAnnotations(propertyEditSnapshotRef.current);
     propertyEditSnapshotRef.current = null;
   };
 
   const setAnnotationColor = (color) => {
+    if (!canEditPdf) return;
     setCurrentColor(color);
     if (!selectedAnnotation || selectedAnnotation.color === color) return;
     finishPropertyEdit();
@@ -1094,7 +1117,7 @@ function App() {
   };
 
   const handleUndo = () => {
-    if (!undoStack.length) return;
+    if (!canEditPdf || !undoStack.length) return;
     const previous = undoStack[undoStack.length - 1];
     setRedoStack((stack) => [...stack, annotations]);
     setAnnotations(previous);
@@ -1104,7 +1127,7 @@ function App() {
   };
 
   const handleRedo = () => {
-    if (!redoStack.length) return;
+    if (!canEditPdf || !redoStack.length) return;
     const next = redoStack[redoStack.length - 1];
     setUndoStack((stack) => [...stack, annotations]);
     setAnnotations(next);
@@ -1117,6 +1140,10 @@ function App() {
     const cleanBytes = Uint8Array.from(bytes);
     const proxy = await pdfjsLib.getDocument({ data: cleanBytes.slice() }).promise;
     setPdfBytes(cleanBytes);
+    if (!preserveAnnotations) {
+      setOriginalPdfBytes(cleanBytes.slice());
+      setOriginalDocumentName(nextName || 'Untitled.pdf');
+    }
     setPdfDocument(proxy);
     setPageIndex(Math.min(Math.max(nextPage, 0), proxy.numPages - 1));
     setPageSizes({});
@@ -1129,6 +1156,34 @@ function App() {
       setDirty(false);
     }
   };
+
+  useEffect(() => {
+    const wasEditable = editableRoleRef.current;
+    editableRoleRef.current = canEditPdf;
+    if (!wasEditable || canEditPdf) return;
+
+    setTool('select');
+    setAnnotations([]);
+    setSelectedId(null);
+    setUndoStack([]);
+    setRedoStack([]);
+    setDirty(false);
+    propertyEditSnapshotRef.current = null;
+    if (!originalPdfBytes) return;
+
+    setBusy(true);
+    installPdf(originalPdfBytes, originalDocumentName, 0)
+      .then(() => {
+        setZoom(82);
+        pageStageRef.current?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        showToast('Access changed to Preview. Restored the original PDF.');
+      })
+      .catch((error) => {
+        console.error(error);
+        showToast('Could not restore the original PDF. Reload it to continue in Preview.');
+      })
+      .finally(() => setBusy(false));
+  }, [canEditPdf, originalPdfBytes, originalDocumentName]);
 
   const handleFile = async (file) => {
     if (!file) return;
@@ -1153,6 +1208,7 @@ function App() {
   };
 
   const savePdfBytes = async (updatedBytes, nextPage = pageIndex) => {
+    if (!canEditPdf) return;
     await installPdf(updatedBytes, documentName, nextPage, true);
     setSelectedId(null);
     setUndoStack([]);
@@ -1161,7 +1217,7 @@ function App() {
   };
 
   const handleAddPage = async () => {
-    if (!pdfBytes) return;
+    if (!canEditPdf || !pdfBytes) return;
     setBusy(true);
     try {
       const document = await PDFDocument.load(pdfBytes.slice());
@@ -1180,7 +1236,7 @@ function App() {
   };
 
   const handleDuplicatePage = async () => {
-    if (!pdfBytes) return;
+    if (!canEditPdf || !pdfBytes) return;
     setBusy(true);
     try {
       const document = await PDFDocument.load(pdfBytes.slice());
@@ -1207,7 +1263,7 @@ function App() {
   };
 
   const handleDeletePage = async () => {
-    if (!pdfBytes || !pdfDocument) return;
+    if (!canEditPdf || !pdfBytes || !pdfDocument) return;
     if (pageCount <= 1) {
       showToast('A PDF needs to have at least one page.');
       return;
@@ -1235,8 +1291,20 @@ function App() {
     }
   };
 
+  const handleDownloadOriginal = () => {
+    if (!canDownloadOriginalPdf || !originalPdfBytes || busy) return;
+    const blob = new Blob([originalPdfBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const anchor = window.document.createElement('a');
+    anchor.href = url;
+    anchor.download = originalDocumentName || 'document.pdf';
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast('Your original PDF is ready to download');
+  };
+
   const handleExport = async () => {
-    if (!pdfBytes || busy) return;
+    if (!canDownloadEditedPdf || !pdfBytes || busy) return;
     setBusy(true);
     try {
       const document = await PDFDocument.load(pdfBytes.slice());
@@ -1457,7 +1525,7 @@ function App() {
       }
       if (!editingText && event.key === 'Escape') setSelectedId(null);
       const shortcuts = { v: 'select', e: 'eraser', t: 'text', h: 'highlight', d: 'draw', p: 'pen', l: 'line', a: 'arrow', r: 'shape', c: 'circle' };
-      if (!editingText && shortcuts[event.key.toLowerCase()]) setTool(shortcuts[event.key.toLowerCase()]);
+      if (canEditPdf && !editingText && shortcuts[event.key.toLowerCase()]) setTool(shortcuts[event.key.toLowerCase()]);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1494,35 +1562,63 @@ function App() {
         </div>
 
         <div className="document-title-wrap">
-          <input
-            className="document-title"
-            value={documentName}
-            onChange={(event) => setDocumentName(event.target.value)}
-            aria-label="Document name"
-            spellCheck="false"
-          />
-          <div className={`save-indicator ${dirty ? 'unsaved' : ''}`}>
+          {canEditPdf ? (
+            <input
+              className="document-title"
+              value={documentName}
+              onChange={(event) => setDocumentName(event.target.value)}
+              aria-label="Document name"
+              spellCheck="false"
+            />
+          ) : (
+            <div className="document-title document-title-readonly" aria-label="Document name">{documentName}</div>
+          )}
+          <div className={`save-indicator ${dirty && canEditPdf ? 'unsaved' : ''}`}>
             <span className="save-dot" />
-            <span>{dirty ? 'Changes not downloaded' : 'Private workspace'}</span>
+            <span>{!canEditPdf ? 'Read-only preview' : dirty ? 'Changes not downloaded' : 'Private workspace'}</span>
           </div>
         </div>
 
         <div className="topbar-actions">
-          <div className="history-actions" aria-label="Edit history">
-            <button className="icon-button" type="button" onClick={handleUndo} disabled={!undoStack.length} title="Undo (Ctrl/⌘ Z)" aria-label="Undo">
-              <Undo2 size={17} />
-            </button>
-            <button className="icon-button" type="button" onClick={handleRedo} disabled={!redoStack.length} title="Redo (Ctrl/⌘ Shift Z)" aria-label="Redo">
-              <Redo2 size={17} />
-            </button>
-          </div>
+          {canEditPdf && (
+            <div className="history-actions" aria-label="Edit history">
+              <button className="icon-button" type="button" onClick={handleUndo} disabled={!undoStack.length} title="Undo (Ctrl/⌘ Z)" aria-label="Undo">
+                <Undo2 size={17} />
+              </button>
+              <button className="icon-button" type="button" onClick={handleRedo} disabled={!redoStack.length} title="Redo (Ctrl/⌘ Shift Z)" aria-label="Redo">
+                <Redo2 size={17} />
+              </button>
+            </div>
+          )}
+          <details className="session-menu">
+            <summary className="session-role-chip" title={`Signed in as ${sessionLabel}`} aria-label={`Account menu for ${sessionLabel}`}>
+              <ShieldCheck size={14} /><span>{roleLabel}</span><ChevronDown className="session-menu-chevron" size={13} />
+            </summary>
+            <div className="session-menu-popover">
+              <div className="session-account-copy"><small>SIGNED IN AS</small><strong>{sessionLabel}</strong><span>{user?.email || ''}</span></div>
+              {onOpenAdminPanel && <button type="button" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onOpenAdminPanel(); }}><Users size={15} /> Manage users</button>}
+              <button type="button" className="session-signout" onClick={(event) => { event.currentTarget.closest('details')?.removeAttribute('open'); onSignOut?.(); }}><LogOut size={15} /> Sign out</button>
+            </div>
+          </details>
           <button className="top-open-button" type="button" onClick={() => fileInputRef.current?.click()}>
             <Upload size={15} /> <span>Open PDF</span>
           </button>
-          <button className="download-button" type="button" onClick={handleExport} disabled={!pdfDocument || busy}>
+          <button
+            className="download-button"
+            type="button"
+            onClick={canDownloadEditedPdf ? handleExport : handleDownloadOriginal}
+            disabled={!pdfDocument || busy || (canDownloadEditedPdf ? !pdfBytes : !canDownloadOriginalPdf || !originalPdfBytes)}
+            title={primaryDownloadLabel}
+          >
             {busy ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}
-            <span>{busy ? 'Working…' : 'Download PDF'}</span>
+            <span className="download-label-full">{busy ? 'Working…' : primaryDownloadLabel}</span>
+            <span className="download-label-short">{busy ? 'Wait' : canDownloadEditedPdf ? 'Edited' : 'Original'}</span>
           </button>
+          {canDownloadEditedPdf && canDownloadOriginalPdf && (
+            <button type="button" className="download-original-button" onClick={handleDownloadOriginal} disabled={!originalPdfBytes || busy} title="Download the original PDF">
+              <Download size={14} /><span>Original</span>
+            </button>
+          )}
           <button className="mobile-inspector-toggle" type="button" onClick={() => setInspectorOpen((open) => !open)} aria-label="Toggle properties">
             <Info size={17} />
           </button>
@@ -1541,29 +1637,39 @@ function App() {
               </button>
             </div>
 
-            <div className="section-heading"><span>TOOLS</span><span className="tool-count">{String(TOOL_OPTIONS.length).padStart(2, '0')}</span></div>
-            <div className="tool-list">
-              {TOOL_OPTIONS.map(({ id, label, hint, icon: Icon }) => (
-                <button
-                  type="button"
-                  key={id}
-                  className={`tool-button ${tool === id ? 'active' : ''}`}
-                  onClick={() => setTool(id)}
-                  title={`${label} — ${hint}`}
-                  aria-pressed={tool === id}
-                >
-                  <span className="tool-icon"><Icon size={17} strokeWidth={1.8} /></span>
-                  <span className="tool-copy"><span>{label}</span><small>{hint}</small></span>
-                  {tool === id && <span className="tool-active-dot" />}
-                </button>
-              ))}
-            </div>
+            {canEditPdf ? (
+              <>
+                <div className="section-heading"><span>TOOLS</span><span className="tool-count">{String(TOOL_OPTIONS.length).padStart(2, '0')}</span></div>
+                <div className="tool-list">
+                  {TOOL_OPTIONS.map(({ id, label, hint, icon: Icon }) => (
+                    <button
+                      type="button"
+                      key={id}
+                      className={`tool-button ${tool === id ? 'active' : ''}`}
+                      onClick={() => setTool(id)}
+                      title={`${label} — ${hint}`}
+                      aria-pressed={tool === id}
+                    >
+                      <span className="tool-icon"><Icon size={17} strokeWidth={1.8} /></span>
+                      <span className="tool-copy"><span>{label}</span><small>{hint}</small></span>
+                      {tool === id && <span className="tool-active-dot" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="preview-access-card">
+                <span className="preview-access-icon"><ShieldCheck size={16} /></span>
+                <strong>Preview access</strong>
+                <span>Read-only viewing. You can download the original PDF; editing tools are disabled.</span>
+              </div>
+            )}
 
             <div className="pages-heading-row">
               <div className="section-heading pages-title"><span>PAGES</span><span className="page-count">{String(pageCount).padStart(2, '0')}</span></div>
-              <button type="button" className="tiny-icon-button" onClick={handleAddPage} title="Add a blank page" aria-label="Add a page" disabled={!pdfDocument || busy}>
+              {canEditPdf && <button type="button" className="tiny-icon-button" onClick={handleAddPage} title="Add a blank page" aria-label="Add a page" disabled={!pdfDocument || busy}>
                 <Plus size={15} />
-              </button>
+              </button>}
             </div>
             {pdfDocument ? (
               <div className="page-thumbnails">
@@ -1580,9 +1686,9 @@ function App() {
             ) : (
               <div className="empty-pages-hint"><FileText size={16} /><span>Pages appear here after you open a PDF.</span></div>
             )}
-            <button className="add-page-wide" type="button" onClick={handleAddPage} disabled={!pdfDocument || busy}>
+            {canEditPdf && <button className="add-page-wide" type="button" onClick={handleAddPage} disabled={!pdfDocument || busy}>
               <Plus size={15} /> Add blank page
-            </button>
+            </button>}
           </div>
           <div className="sidebar-footer">
             <span className="privacy-lock"><LockKeyhole size={13} /> Private by design</span>
@@ -1603,7 +1709,7 @@ function App() {
                 </button>
               </div>
               <span className="toolbar-divider" />
-              <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{activeTool.label}</span><span className="tool-caption-hint">{tool === 'select' ? 'Click an item to select it' : ['highlight', 'whiteout', ...SHAPE_TOOL_IDS, ...FREEHAND_TOOL_IDS].includes(tool) ? 'Click and drag on the page' : 'Click to place on the page'}</span></div>
+              <div className="active-tool-caption"><span className="active-tool-indicator" style={{ background: tool === 'select' ? '#7768d6' : currentColor }} /><span>{canEditPdf ? activeTool.label : 'Preview'}</span><span className="tool-caption-hint">{!canEditPdf ? 'Read-only viewing' : tool === 'select' ? 'Click an item to select it' : ['highlight', 'whiteout', ...SHAPE_TOOL_IDS, ...FREEHAND_TOOL_IDS].includes(tool) ? 'Click and drag on the page' : 'Click to place on the page'}</span></div>
             </div>
             <div className="canvas-toolbar-right">
               <button type="button" className="toolbar-icon-button zoom-control" onClick={() => handleZoom(zoom - 10)} disabled={!pdfDocument || zoom <= 40} aria-label="Zoom out" title="Zoom out">
@@ -1616,9 +1722,9 @@ function App() {
               <span className="toolbar-divider" />
               <button type="button" className="fit-button" onClick={handleFit} disabled={!pdfDocument}><span>Fit</span><span className="fit-glyph">↗</span></button>
               <span className="toolbar-divider desktop-divider" />
-              <button type="button" className="toolbar-icon-button delete-page-button" onClick={handleDeletePage} disabled={pageCount <= 1 || busy} title="Remove current page" aria-label="Remove current page">
+              {canEditPdf && <button type="button" className="toolbar-icon-button delete-page-button" onClick={handleDeletePage} disabled={pageCount <= 1 || busy} title="Remove current page" aria-label="Remove current page">
                 <Trash2 size={15} />
-              </button>
+              </button>}
             </div>
           </div>
 
@@ -1652,6 +1758,7 @@ function App() {
                       active={pageIndex === index}
                       annotations={annotations}
                       tool={tool}
+                      readOnly={!canEditPdf}
                       currentColor={currentColor}
                       selectedId={selectedId}
                       setSelectedId={setSelectedId}
@@ -1666,11 +1773,11 @@ function App() {
               )}
             </div>
             <div className="workspace-bottomline">
-              <span>{pdfDocument ? <><ShieldCheck size={14} /> Edits preview instantly</> : <><LockKeyhole size={14} /> Files stay on your device</>}</span>
+              <span>{pdfDocument ? <><ShieldCheck size={14} /> {canEditPdf ? 'Edits preview instantly' : 'Read-only preview'}</> : <><LockKeyhole size={14} /> Files stay on your device</>}</span>
               <span>{pdfDocument ? 'Scroll to move through pages · Drop a PDF anywhere to open it' : 'Open a PDF or drag it into the live preview'}</span>
             </div>
           </div>
-          {pdfDocument && selectedAnnotation ? (
+          {canEditPdf && pdfDocument && selectedAnnotation ? (
             <MobilePropertiesBar
               annotation={selectedAnnotation}
               label={mobileSelectionLabel}
@@ -1693,8 +1800,8 @@ function App() {
               </button>
             </div>
           )}
-          <nav className="mobile-tool-dock" aria-label="PDF editing tools">
-            {TOOL_OPTIONS.map(({ id, label, icon: Icon }) => (
+          <nav className="mobile-tool-dock" aria-label={canEditPdf ? 'PDF editing tools' : 'PDF preview actions'}>
+            {canEditPdf && TOOL_OPTIONS.map(({ id, label, icon: Icon }) => (
               <button type="button" key={id} className={tool === id ? 'active' : ''} onClick={() => setTool(id)} aria-label={label} aria-pressed={tool === id} title={label}>
                 <Icon size={16} /><span className="mobile-tool-label">{label}</span>
               </button>
@@ -1707,7 +1814,7 @@ function App() {
           <div className="inspector-scroll">
             <div className="inspector-header"><div><span className="inspector-kicker">WORKSPACE</span><h2>{selectedAnnotation ? 'Properties' : 'Page details'}</h2></div><button type="button" className="close-inspector" onClick={() => setInspectorOpen(false)} aria-label="Close properties"><X size={16} /></button></div>
 
-            {selectedAnnotation ? (
+            {canEditPdf && selectedAnnotation ? (
               <>
                 <div className="selection-card">
                   <div className={`selection-icon selection-${selectedAnnotation.type}`}><SelectedAnnotationIcon size={17} /></div>
@@ -1810,24 +1917,28 @@ function App() {
                   <div className="page-summary-copy"><strong>{pdfDocument ? `Page ${String(pageIndex + 1).padStart(2, '0')}` : 'No PDF loaded'}</strong><span>{pdfDocument ? pageInfo : 'Upload a PDF to see page details'}</span><small>{pdfDocument ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} in this document` : 'Your files stay on this device'}</small></div>
                 </div>
 
-                <Palette value={currentColor} onChange={setAnnotationColor} label="QUICK COLOR" />
+                {canEditPdf && <Palette value={currentColor} onChange={setAnnotationColor} label="QUICK COLOR" />}
 
-                <div className="inspector-section-title"><span>PAGE ACTIONS</span></div>
-                <div className="page-action-list">
-                  <button type="button" className="page-action-button" onClick={handleAddPage} disabled={busy || !pdfDocument}>
-                    <span className="page-action-icon lavender"><FilePlus2 size={16} /></span><span><strong>Add a blank page</strong><small>Append a fresh page</small></span><Plus size={15} className="page-action-trailing" />
-                  </button>
-                  <button type="button" className="page-action-button" onClick={handleDuplicatePage} disabled={busy || !pdfDocument}>
-                    <span className="page-action-icon mint"><FileText size={16} /></span><span><strong>Duplicate this page</strong><small>Keep a copy to work on</small></span><Plus size={15} className="page-action-trailing" />
-                  </button>
-                  <button type="button" className="page-action-button danger-action" onClick={handleDeletePage} disabled={busy || pageCount <= 1}>
-                    <span className="page-action-icon rose"><Trash2 size={16} /></span><span><strong>Remove this page</strong><small>{pageCount <= 1 ? 'Keep at least one page' : 'This cannot be undone'}</small></span>
-                  </button>
-                </div>
+                {canEditPdf && (
+                  <>
+                    <div className="inspector-section-title"><span>PAGE ACTIONS</span></div>
+                    <div className="page-action-list">
+                      <button type="button" className="page-action-button" onClick={handleAddPage} disabled={busy || !pdfDocument}>
+                        <span className="page-action-icon lavender"><FilePlus2 size={16} /></span><span><strong>Add a blank page</strong><small>Append a fresh page</small></span><Plus size={15} className="page-action-trailing" />
+                      </button>
+                      <button type="button" className="page-action-button" onClick={handleDuplicatePage} disabled={busy || !pdfDocument}>
+                        <span className="page-action-icon mint"><FileText size={16} /></span><span><strong>Duplicate this page</strong><small>Keep a copy to work on</small></span><Plus size={15} className="page-action-trailing" />
+                      </button>
+                      <button type="button" className="page-action-button danger-action" onClick={handleDeletePage} disabled={busy || pageCount <= 1}>
+                        <span className="page-action-icon rose"><Trash2 size={16} /></span><span><strong>Remove this page</strong><small>{pageCount <= 1 ? 'Keep at least one page' : 'This cannot be undone'}</small></span>
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 <div className="inspector-note-card">
                   <span className="note-shield"><LockKeyhole size={14} /></span>
-                  <span><strong>Your files stay yours</strong><small>PDFs are opened and edited locally in this browser. Nothing is uploaded to a server.</small></span>
+                  <span><strong>{canEditPdf ? 'Your files stay yours' : 'Preview access'}</strong><small>{canEditPdf ? 'PDFs are opened and edited locally in this browser. Nothing is uploaded to a server.' : 'This is read-only. Download the original PDF from the top bar; editing and page changes are disabled.'}</small></span>
                 </div>
               </>
             )}

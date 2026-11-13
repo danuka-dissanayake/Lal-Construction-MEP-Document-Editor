@@ -2,5 +2,7 @@ node_modules/
 dist/
 .vercel/
 .DS_Store
+.firebaserc
 .env
 .env.*
+!.env.example
