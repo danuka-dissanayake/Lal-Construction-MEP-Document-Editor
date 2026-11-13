@@ -22,7 +22,7 @@ const PROFILE_COLLECTION = 'userProfiles';
 
 function requireFirebase() {
   if (!firebaseConfigured || !auth || !db) {
-    throw new Error('Firebase is not configured. Add your Firebase web app settings to .env.local and restart Vite.');
+    throw new Error('Workspace access is not configured. Contact your administrator.');
   }
 }
 
@@ -65,14 +65,14 @@ export function AuthProvider({ children }) {
         }
         setProfile({ id: snapshot.id, ...snapshot.data() });
         setStatus('ready');
-      }, (error) => {
+      }, () => {
         if (!active || currentGeneration !== generation) return;
-        setProfileError(error.message || 'Could not load your account role.');
+        setProfileError('We could not load your account access. Please try again or contact an administrator.');
         setStatus('error');
       });
-    }, (error) => {
+    }, () => {
       if (!active) return;
-      setProfileError(error.message || 'Could not connect to Firebase Authentication.');
+      setProfileError('Could not connect to your account. Check your connection and try again.');
       setStatus('error');
     });
 

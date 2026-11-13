@@ -1575,7 +1575,7 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
           )}
           <div className={`save-indicator ${dirty && canEditPdf ? 'unsaved' : ''}`}>
             <span className="save-dot" />
-            <span>{!canEditPdf ? 'Read-only preview' : dirty ? 'Changes not downloaded' : 'Private workspace'}</span>
+            <span>{!canEditPdf ? 'Read-only preview' : dirty ? 'Changes not downloaded' : 'Workspace ready'}</span>
           </div>
         </div>
 
@@ -1631,7 +1631,7 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
           <div className="sidebar-scroll">
             <div className="sidebar-upload-card">
               <div className="upload-card-icon"><Upload size={17} /></div>
-              <div className="upload-card-copy"><strong>Start with your PDF</strong><span>Everything stays on your device.</span></div>
+              <div className="upload-card-copy"><strong>Start with your PDF</strong><span>Select a PDF to get started.</span></div>
               <button type="button" className="upload-card-button" onClick={() => fileInputRef.current?.click()}>
                 <Upload size={14} /> Open a file
               </button>
@@ -1691,7 +1691,7 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
             </button>}
           </div>
           <div className="sidebar-footer">
-            <span className="privacy-lock"><LockKeyhole size={13} /> Private by design</span>
+            <span className="privacy-lock"><FileText size={13} /> PDF Workspace</span>
             <span className="sidebar-version">FOLIO 01</span>
           </div>
         </aside>
@@ -1737,14 +1737,13 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
                     <span className="empty-pdf-paper"><FileText size={27} strokeWidth={1.7} /></span>
                     <span className="empty-pdf-badge"><Upload size={14} /></span>
                   </div>
-                  <span className="empty-pdf-eyebrow">YOUR PRIVATE PDF WORKSPACE</span>
+                  <span className="empty-pdf-eyebrow">MEP DOCUMENT EDITOR</span>
                   <h1>Start with your document.</h1>
                   <p>Upload a PDF to add notes, shapes, highlights and signatures.</p>
                   <button type="button" className="empty-pdf-upload" onClick={() => fileInputRef.current?.click()}>
                     <Upload size={17} /> Choose a PDF
                   </button>
                   <div className="empty-pdf-drop-hint"><span /> Or drag and drop a PDF here</div>
-                  <div className="empty-pdf-privacy"><LockKeyhole size={13} /> Your file stays on this device</div>
                 </section>
               ) : (
                 <div className="document-page-stack">
@@ -1773,7 +1772,7 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
               )}
             </div>
             <div className="workspace-bottomline">
-              <span>{pdfDocument ? <><ShieldCheck size={14} /> {canEditPdf ? 'Edits preview instantly' : 'Read-only preview'}</> : <><LockKeyhole size={14} /> Files stay on your device</>}</span>
+              <span>{pdfDocument ? <><ShieldCheck size={14} /> {canEditPdf ? 'Edits preview instantly' : 'Read-only preview'}</> : <><FileText size={14} /> Select a PDF to begin</>}</span>
               <span>{pdfDocument ? 'Scroll to move through pages · Drop a PDF anywhere to open it' : 'Open a PDF or drag it into the live preview'}</span>
             </div>
           </div>
@@ -1914,7 +1913,7 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
               <>
                 <div className="page-summary-card">
                   <div className="page-summary-paper"><FileText size={20} strokeWidth={1.5} /><span>{pdfDocument ? String(pageIndex + 1).padStart(2, '0') : '—'}</span></div>
-                  <div className="page-summary-copy"><strong>{pdfDocument ? `Page ${String(pageIndex + 1).padStart(2, '0')}` : 'No PDF loaded'}</strong><span>{pdfDocument ? pageInfo : 'Upload a PDF to see page details'}</span><small>{pdfDocument ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} in this document` : 'Your files stay on this device'}</small></div>
+                  <div className="page-summary-copy"><strong>{pdfDocument ? `Page ${String(pageIndex + 1).padStart(2, '0')}` : 'No PDF loaded'}</strong><span>{pdfDocument ? pageInfo : 'Upload a PDF to see page details'}</span><small>{pdfDocument ? `${pageCount} ${pageCount === 1 ? 'page' : 'pages'} in this document` : 'Select a PDF to view page details'}</small></div>
                 </div>
 
                 {canEditPdf && <Palette value={currentColor} onChange={setAnnotationColor} label="QUICK COLOR" />}
@@ -1937,17 +1936,17 @@ function App({ user, profile, onSignOut, onOpenAdminPanel }) {
                 )}
 
                 <div className="inspector-note-card">
-                  <span className="note-shield"><LockKeyhole size={14} /></span>
-                  <span><strong>{canEditPdf ? 'Your files stay yours' : 'Preview access'}</strong><small>{canEditPdf ? 'PDFs are opened and edited locally in this browser. Nothing is uploaded to a server.' : 'This is read-only. Download the original PDF from the top bar; editing and page changes are disabled.'}</small></span>
+                  <span className="note-shield"><Info size={14} /></span>
+                  <span><strong>{canEditPdf ? 'Editing enabled' : 'Preview access'}</strong><small>{canEditPdf ? 'Use the tools to annotate pages and download an edited copy.' : 'This is read-only. Download the original PDF from the top bar.'}</small></span>
                 </div>
               </>
             )}
           </div>
-          <div className="inspector-footer"><span><span className="footer-check"><Check size={10} /></span>{dirty ? 'Ready to download' : 'Local & private'}</span><span>HELP <span className="help-dot">?</span></span></div>
+          <div className="inspector-footer"><span><span className="footer-check"><Check size={10} /></span>{dirty ? 'Ready to download' : 'Ready'}</span><span>HELP <span className="help-dot">?</span></span></div>
         </aside>
       </div>
 
-      {isDraggingFile && <div className="drop-overlay"><div className="drop-message"><div className="drop-icon"><Upload size={24} /></div><strong>Drop your PDF here</strong><span>It opens locally in your browser</span></div></div>}
+      {isDraggingFile && <div className="drop-overlay"><div className="drop-message"><div className="drop-icon"><Upload size={24} /></div><strong>Drop your PDF here</strong><span>Your document will open in the workspace.</span></div></div>}
       {toast && <div className="toast-message"><span className="toast-check"><Check size={13} /></span>{toast}</div>}
       {busy && <div className="busy-progress" aria-hidden="true"><span /></div>}
     </div>

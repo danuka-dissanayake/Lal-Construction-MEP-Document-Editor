@@ -29,10 +29,12 @@ function humanizeAuthError(error) {
     'auth/email-already-in-use': 'An account already uses this email. Try signing in.',
     'auth/weak-password': 'Choose a password with at least 6 characters.',
     'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.',
-    'auth/network-request-failed': 'Could not reach Firebase. Check your connection and project setup.',
-    'permission-denied': 'Firebase rejected this action. Check the Firestore security rules.',
+    'auth/network-request-failed': 'Could not connect right now. Check your internet connection and try again.',
+    'auth/invalid-api-key': 'Sign-in is temporarily unavailable. Contact your workspace administrator.',
+    'auth/operation-not-allowed': 'Sign-in is temporarily unavailable. Contact your workspace administrator.',
+    'permission-denied': 'You do not have permission to make this change. Contact an administrator.',
   };
-  return messages[code] || error?.message || 'Something went wrong. Please try again.';
+  return messages[code] || 'Something went wrong. Please try again.';
 }
 
 export function AuthLoading({ message = 'Checking your account…' }) {
@@ -58,7 +60,7 @@ export function AuthScreen({ configMissing = false }) {
     event.preventDefault();
     setError('');
     if (configMissing) {
-      setError('Add your Firebase web app settings to .env.local, then restart the app.');
+      setError('Sign-in is not available yet. Please contact your workspace administrator.');
       return;
     }
     if (isSignup && password !== confirmPassword) {
@@ -92,7 +94,7 @@ export function AuthScreen({ configMissing = false }) {
       <section className="auth-card">
         <div className="auth-card-heading">
           <span className="auth-heading-icon">{isSignup ? <UserPlus size={20} /> : <ShieldCheck size={20} />}</span>
-          <span className="auth-eyebrow">PRIVATE DOCUMENT WORKSPACE</span>
+          <span className="auth-eyebrow">MEP DOCUMENT WORKSPACE</span>
           <h1>{isSignup ? 'Create your account' : 'Welcome back'}</h1>
           <p>{isSignup ? 'Create an account to open your PDF workspace.' : 'Sign in to continue to your PDF workspace.'}</p>
         </div>
@@ -100,7 +102,7 @@ export function AuthScreen({ configMissing = false }) {
         {configMissing && (
           <div className="auth-notice" role="status">
             <Info size={17} />
-            <span><strong>Firebase setup required</strong><small>Copy .env.example to .env.local, add your Firebase Web app config, then restart Vite. The forms are ready once configured.</small></span>
+            <span><strong>Workspace sign-in unavailable</strong><small>Sign-in is not available yet. Please contact your workspace administrator.</small></span>
           </div>
         )}
 
@@ -141,8 +143,6 @@ export function AuthScreen({ configMissing = false }) {
         </div>
         {isSignup && <div className="auth-default-role"><BadgeCheck size={15} /><span>New accounts start in <strong>Preview</strong>. An admin can assign a different role later.</span></div>}
       </section>
-
-      <footer className="auth-footer"><LockKeyhole size={13} /> PDFs stay on this device. Firebase stores account and role details only.</footer>
     </main>
   );
 }
@@ -180,7 +180,6 @@ export function ProfileSetupScreen() {
         </button>
         <button className="auth-secondary-action" type="button" onClick={logout}><LogOut size={15} /> Sign out</button>
       </section>
-      <footer className="auth-footer"><LockKeyhole size={13} /> PDFs stay on this device. Firebase stores account and role details only.</footer>
     </main>
   );
 }
@@ -193,7 +192,7 @@ export function AuthProblemScreen() {
         <span className="auth-heading-icon auth-error-icon"><Info size={20} /></span>
         <span className="auth-eyebrow">ACCOUNT CONNECTION</span>
         <h1>We couldn't load your role</h1>
-        <p>{profileError || 'Check your Firebase setup and Firestore security rules, then sign in again.'}</p>
+        <p>{profileError || 'We could not load your account access. Please try again or contact an administrator.'}</p>
         <button className="auth-submit" type="button" onClick={logout}><LogOut size={16} /> Sign out</button>
       </section>
     </main>
@@ -222,11 +221,11 @@ export function AdminPanel({ profile, onOpenEditor, onSignOut }) {
         setError('');
       }, (snapshotError) => {
         if (!alive) return;
-        setError(snapshotError.message || 'Could not load user accounts.');
+        setError('Could not load user accounts. Please try again or contact an administrator.');
         setLoading(false);
       });
     } catch (snapshotError) {
-      setError(snapshotError.message || 'Could not connect to the users collection.');
+      setError('Could not load user accounts. Please try again or contact an administrator.');
       setLoading(false);
     }
     return () => {
@@ -313,7 +312,7 @@ export function AdminPanel({ profile, onOpenEditor, onSignOut }) {
               </tbody>
             </table>
           </div>
-          <div className="admin-users-note"><Info size={15} /><span>Preview users can download the original PDF but cannot edit in the interface. Edit &amp; Preview users can do both. This client-side role gate controls the interface; PDFs themselves remain local.</span></div>
+          <div className="admin-users-note"><Info size={15} /><span>Preview users can view and download the original PDF. Edit users can edit and download edited copies. Edit &amp; Preview users can download either version.</span></div>
         </section>
       </section>
     </main>
