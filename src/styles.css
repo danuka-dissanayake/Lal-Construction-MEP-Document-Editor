@@ -50,12 +50,8 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 }
 
 .brand-lockup { display: flex; align-items: center; flex: 0 0 306px; min-width: 306px; }
-.brand-mark {
-  width: 34px; height: 34px; margin-right: 9px; display: grid; place-items: center;
-  color: #fff; background: #7768d6; border-radius: 11px; box-shadow: 0 4px 8px rgba(90, 76, 184, .18);
-}
-.brand-wordmark { font: 800 15.5px/1 'Manrope', sans-serif; letter-spacing: -.45px; white-space: nowrap; color: #292a27; }
-.brand-wordmark span { color: #7768d6; }
+.brand-logo { display: block; flex: 0 0 auto; width: 162px; height: auto; object-fit: contain; }
+
 .brand-divider { height: 21px; width: 1px; flex: 0 0 1px; background: #e8e6e1; margin: 0 10px; }
 .workspace-label { font-size: 8px; font-weight: 750; letter-spacing: .75px; line-height: 1.45; color: #898780; white-space: nowrap; }
 
@@ -326,9 +322,8 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 
 @media (max-width: 680px) {
   .topbar { height: 60px; flex-basis: 60px; padding: 0 12px; }
-  .brand-lockup { flex-basis: auto; min-width: auto; }
-  .brand-mark { width: 31px; height: 31px; margin-right: 7px; border-radius: 9px; }
-  .brand-wordmark { font-size: 17px; }
+  .brand-lockup { flex: 0 1 auto; width: min(160px, 40vw); min-width: 0; }
+  .brand-logo { width: 100%; max-height: 54px; }
   .brand-divider, .workspace-label, .document-title-wrap, .history-actions, .top-open-button { display: none; }
   .topbar-actions { margin-left: auto; gap: 6px; }
   .download-button { height: 34px; padding: 0 10px; gap: 6px; font-size: 10px; }
@@ -407,7 +402,6 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 }
 
 @media (max-width: 410px) {
-  .brand-wordmark { font-size: 15px; letter-spacing: -.35px; }
   .download-button { padding: 0 9px; }
   .download-button span { font-size: 9px; }
   .mobile-inspector-toggle { width: 28px; }
@@ -506,7 +500,9 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 
 @media (max-width: 1180px) {
   .topbar { padding: 0 14px; gap: 6px; }
-  .brand-lockup { flex-basis: 245px; min-width: 0; }
+  .brand-lockup { flex: 0 0 176px; min-width: 0; }
+  .brand-logo { width: 162px; }
+  .brand-divider, .workspace-label { display: none; }
   .document-title-wrap { padding-left: 8px; padding-right: 8px; }
   .topbar-actions { gap: 5px; }
 }
@@ -518,6 +514,8 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 }
 
 @media (max-width: 680px) {
+  .brand-lockup { flex: 0 1 auto; width: min(160px, 40vw); min-width: 0; }
+  .brand-logo { width: 100%; max-height: 54px; }
   .session-menu-popover { width: min(240px, calc(100vw - 24px)); }
   .session-role-chip { width: 31px; min-height: 31px; border-radius: 8px; }
   .download-button { min-width: 68px; padding: 0 8px; }
@@ -535,7 +533,6 @@ button:disabled { cursor: not-allowed !important; opacity: .42; }
 
 @media (max-width: 360px) {
   .topbar { padding: 0 7px; }
-  .brand-wordmark { font-size: 14px; }
   .topbar-actions { gap: 3px; }
   .session-role-chip { width: 28px; }
   .download-original-button { width: 28px; flex-basis: 28px; }

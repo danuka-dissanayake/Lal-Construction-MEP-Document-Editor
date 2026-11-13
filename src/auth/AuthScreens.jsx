@@ -2,7 +2,6 @@ import React, { useMemo, useState, useEffect } from 'react';
 import {
   ArrowLeft,
   BadgeCheck,
-  FileText,
   Info,
   LoaderCircle,
   LockKeyhole,
@@ -40,7 +39,7 @@ function humanizeAuthError(error) {
 export function AuthLoading({ message = 'Checking your account…' }) {
   return (
     <main className="auth-page">
-      <div className="auth-loading-card"><span className="auth-brand-mark"><FileText size={20} /></span><LoaderCircle className="auth-spinner" size={22} /><strong>{message}</strong></div>
+      <div className="auth-loading-card"><img className="auth-loading-logo" src="/assets/lal-construction-logo.jpeg" alt="Lal Construction &amp; Engineering (Pvt) Ltd" /><LoaderCircle className="auth-spinner" size={22} /><strong>{message}</strong></div>
     </main>
   );
 }
@@ -87,8 +86,7 @@ export function AuthScreen({ configMissing = false }) {
       <div className="auth-backdrop-orb auth-orb-one" />
       <div className="auth-backdrop-orb auth-orb-two" />
       <header className="auth-brand">
-        <span className="auth-brand-mark"><FileText size={20} strokeWidth={2} /></span>
-        <span><strong>Lal Construction</strong><small>MEP PDF Workspace</small></span>
+        <img className="auth-brand-logo" src="/assets/lal-construction-logo.jpeg" alt="Lal Construction &amp; Engineering (Pvt) Ltd" />
       </header>
 
       <section className="auth-card">
@@ -166,7 +164,7 @@ export function ProfileSetupScreen() {
 
   return (
     <main className="auth-page">
-      <header className="auth-brand"><span className="auth-brand-mark"><FileText size={20} /></span><span><strong>Lal Construction</strong><small>MEP PDF Workspace</small></span></header>
+      <header className="auth-brand"><img className="auth-brand-logo" src="/assets/lal-construction-logo.jpeg" alt="Lal Construction &amp; Engineering (Pvt) Ltd" /></header>
       <section className="auth-card auth-status-card">
         <span className="auth-heading-icon"><Users size={20} /></span>
         <span className="auth-eyebrow">ACCOUNT ACCESS</span>
@@ -188,6 +186,7 @@ export function AuthProblemScreen() {
   const { profileError, logout } = useAuth();
   return (
     <main className="auth-page">
+      <header className="auth-brand"><img className="auth-brand-logo" src="/assets/lal-construction-logo.jpeg" alt="Lal Construction &amp; Engineering (Pvt) Ltd" /></header>
       <section className="auth-card auth-status-card">
         <span className="auth-heading-icon auth-error-icon"><Info size={20} /></span>
         <span className="auth-eyebrow">ACCOUNT CONNECTION</span>
@@ -260,7 +259,7 @@ export function AdminPanel({ profile, onOpenEditor, onSignOut }) {
   return (
     <main className="admin-page">
       <header className="admin-topbar">
-        <div className="admin-brand"><span className="auth-brand-mark"><FileText size={19} /></span><span><strong>Lal Construction</strong><small>Access management</small></span></div>
+        <div className="admin-brand"><img className="admin-brand-logo" src="/assets/lal-construction-logo.jpeg" alt="Lal Construction &amp; Engineering (Pvt) Ltd" /></div>
         <div className="admin-topbar-actions">
           <span className="admin-user-chip"><ShieldCheck size={15} /> {profile.displayName || profile.email}</span>
           <button type="button" className="admin-secondary-button" onClick={onOpenEditor}><ArrowLeft size={15} /> PDF workspace</button>

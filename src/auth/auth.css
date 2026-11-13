@@ -14,11 +14,9 @@
 .auth-backdrop-orb { position: absolute; width: 280px; height: 280px; border-radius: 50%; filter: blur(1px); pointer-events: none; }
 .auth-orb-one { top: -168px; left: 11%; background: radial-gradient(circle, rgba(153, 137, 231, .13), transparent 68%); }
 .auth-orb-two { right: 5%; bottom: -175px; background: radial-gradient(circle, rgba(104, 174, 135, .13), transparent 68%); }
-.auth-brand { position: absolute; top: 26px; left: max(26px, calc((100vw - 1180px) / 2)); z-index: 1; display: flex; align-items: center; gap: 10px; }
-.auth-brand > span:last-child { display: flex; flex-direction: column; gap: 3px; }
-.auth-brand strong { color: #33342f; font: 800 15px/1 'Manrope', sans-serif; letter-spacing: -.35px; }
-.auth-brand small { color: #96948d; font-size: 10px; }
-.auth-brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 11px; color: #fff; background: linear-gradient(135deg, #8174e1, #6658c9); box-shadow: 0 5px 12px rgba(97, 82, 190, .22); }
+.auth-brand { position: absolute; top: 26px; left: max(26px, calc((100vw - 1180px) / 2)); z-index: 1; display: flex; align-items: center; }
+.auth-brand-logo { display: block; width: 188px; max-width: calc(100vw - 32px); height: auto; border-radius: 4px; box-shadow: 0 5px 16px rgba(47, 44, 37, .08); }
+
 .auth-card { position: relative; z-index: 1; width: min(100%, 448px); padding: 34px 38px 30px; border: 1px solid rgba(231, 228, 220, .95); border-radius: 22px; background: rgba(255, 255, 255, .95); box-shadow: 0 24px 70px rgba(47, 44, 37, .11), 0 3px 12px rgba(47, 44, 37, .04); }
 .auth-card-heading { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .auth-heading-icon { width: 47px; height: 47px; display: grid; place-items: center; margin-bottom: 17px; border: 1px solid #e6e1f8; border-radius: 14px; color: #6a5cc5; background: linear-gradient(145deg, #f6f4ff, #ece9fb); }
@@ -52,6 +50,7 @@
 .auth-footer { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 22px; color: #929087; font-size: 10px; text-align: center; }
 .auth-footer svg { color: #6da384; }
 .auth-loading-card { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px 44px; border: 1px solid #e9e6df; border-radius: 18px; color: #77756e; background: #fff; box-shadow: 0 20px 60px rgba(47,44,37,.09); font-size: 12px; }
+.auth-loading-logo { display: block; width: 192px; max-width: 100%; height: auto; border-radius: 4px; }
 .auth-spinner { animation: auth-spin 1s linear infinite; }
 @keyframes auth-spin { to { transform: rotate(360deg); } }
 .auth-status-card { display: flex; flex-direction: column; align-items: center; text-align: center; }
@@ -64,10 +63,8 @@
 .admin-page { min-height: 100vh; color: #292a27; background: #f5f4f1; }
 .admin-topbar { min-height: 68px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 max(22px, calc((100vw - 1180px) / 2)); border-bottom: 1px solid #e9e7e2; background: #fff; }
 .admin-brand, .admin-topbar-actions { display: flex; align-items: center; }
-.admin-brand { gap: 10px; }
-.admin-brand > span:last-child { display: flex; flex-direction: column; gap: 3px; }
-.admin-brand strong { color: #33342f; font: 800 14px/1 'Manrope', sans-serif; }
-.admin-brand small { color: #929087; font-size: 9px; }
+.admin-brand { min-width: 0; }
+.admin-brand-logo { display: block; width: 172px; max-width: 100%; max-height: 58px; height: auto; object-fit: contain; }
 .admin-topbar-actions { gap: 9px; }
 .admin-user-chip { max-width: 250px; display: inline-flex; align-items: center; gap: 7px; overflow: hidden; padding: 8px 11px; border: 1px solid #e8e5df; border-radius: 8px; color: #6e64b6; background: #faf9ff; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .admin-secondary-button, .admin-signout-button { height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid #e7e5df; border-radius: 8px; color: #65645e; background: #fff; font-size: 10px; font-weight: 650; cursor: pointer; }
@@ -118,14 +115,12 @@
 @media (max-width: 680px) {
   .auth-page { justify-content: flex-start; padding: 82px 15px 22px; }
   .auth-brand { top: 19px; left: 16px; }
+  .auth-brand-logo { width: 160px; max-width: calc(100vw - 32px); }
   .auth-card { width: 100%; max-width: 420px; padding: 27px 22px 24px; border-radius: 18px; }
   .auth-card h1 { font-size: 23px; }
   .auth-footer { max-width: 340px; font-size: 9px; }
   .admin-topbar { min-height: 60px; padding: 0 12px; gap: 8px; }
-  .admin-brand { gap: 7px; }
-  .admin-brand .auth-brand-mark { width: 31px; height: 31px; border-radius: 9px; }
-  .admin-brand strong { font-size: 12px; }
-  .admin-brand small { font-size: 8px; }
+  .admin-brand-logo { width: 150px; max-height: 50px; }
   .admin-topbar-actions { gap: 5px; }
   .admin-user-chip { display: none; }
   .admin-secondary-button, .admin-signout-button { width: 34px; height: 34px; padding: 0; }
