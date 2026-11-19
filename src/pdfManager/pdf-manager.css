@@ -853,3 +853,10 @@
   .manager-files-header-actions { width: 100%; justify-content: flex-start; }
   .manager-file-checkbox { width: 28px; flex-basis: 28px; }
 }
+
+/* Keep All documents compact; only the folder tree should fill the sidebar. */
+.pdf-manager-sidebar > .manager-root-folder {
+  flex: 0 0 52px;
+  height: 52px;
+  margin: 0 0 12px;
+}
