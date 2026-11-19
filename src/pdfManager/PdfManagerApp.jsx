@@ -43,6 +43,8 @@ export function PdfManagerApp() {
   const [folders, setFolders] = useState([]);
   const [folderSearch, setFolderSearch] = useState('');
   const [files, setFiles] = useState([]);
+  const [selectedFileIds, setSelectedFileIds] = useState(() => new Set());
+  const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [workspaceError, setWorkspaceError] = useState('');
   const [collapsedFolders, setCollapsedFolders] = useState(() => new Set());
@@ -135,6 +137,7 @@ export function PdfManagerApp() {
     setUser(null);
     setFolders([]);
     setFiles([]);
+    setSelectedFileIds(new Set());
     setSelectedFolderId(null);
     setPageError(message);
     setScreen('login');
@@ -233,6 +236,10 @@ export function PdfManagerApp() {
     void loadWorkspace();
   }, [loadWorkspace]);
 
+  useEffect(() => {
+    setSelectedFileIds(new Set());
+  }, [selectedFolderId]);
+
   const folderTree = useMemo(() => buildFolderTree(folders), [folders]);
   const visibleFolderTree = useMemo(() => filterFolderTree(folderTree, folderSearch), [folderTree, folderSearch]);
   const folderSearchActive = Boolean(folderSearch.trim());
@@ -307,15 +314,62 @@ export function PdfManagerApp() {
     }
   };
 
+  const handleToggleFileSelection = (fileId) => {
+    setSelectedFileIds((current) => toggleSet(current, fileId));
+  };
+
+  const handleToggleAllFileSelection = () => {
+    const allSelected = files.length > 0 && files.every((file) => selectedFileIds.has(file.id));
+    setSelectedFileIds(allSelected ? new Set() : new Set(files.map((file) => file.id)));
+  };
+
   const handleDeleteFile = async (file) => {
     if (!window.confirm(`Delete “${file.name}” permanently?`)) return;
     setWorkspaceError('');
     try {
       await protectedRequest(`/files/${file.id}`, { method: 'DELETE' });
+      setSelectedFileIds((current) => {
+        const next = new Set(current);
+        next.delete(file.id);
+        return next;
+      });
       await loadWorkspace();
       showToast('PDF deleted.');
     } catch (error) {
       setWorkspaceError(error.message || 'The PDF could not be deleted.');
+    }
+  };
+
+  const handleDeleteSelectedFiles = async () => {
+    const selectedFiles = files.filter((file) => selectedFileIds.has(file.id));
+    if (!selectedFiles.length || bulkDeleteBusy) return;
+    const noun = selectedFiles.length === 1 ? 'PDF' : 'PDFs';
+    if (!window.confirm(`Permanently delete ${selectedFiles.length} selected ${noun}? This cannot be undone.`)) return;
+
+    setBulkDeleteBusy(true);
+    setWorkspaceError('');
+    const failedIds = [];
+    try {
+      for (let offset = 0; offset < selectedFiles.length; offset += 8) {
+        const batch = selectedFiles.slice(offset, offset + 8);
+        const results = await Promise.allSettled(batch.map((file) => protectedRequest(`/files/${file.id}`, { method: 'DELETE' })));
+        results.forEach((result, index) => {
+          if (result.status === 'rejected') failedIds.push(batch[index].id);
+        });
+      }
+
+      setSelectedFileIds(new Set(failedIds));
+      await loadWorkspace();
+      const deletedCount = selectedFiles.length - failedIds.length;
+      if (failedIds.length) {
+        setWorkspaceError(`${deletedCount} ${deletedCount === 1 ? 'PDF was' : 'PDFs were'} deleted. ${failedIds.length} could not be deleted; they remain selected so you can try again.`);
+      } else {
+        showToast(`${deletedCount} ${deletedCount === 1 ? 'PDF' : 'PDFs'} deleted.`);
+      }
+    } catch (error) {
+      setWorkspaceError(error.message || 'The selected PDFs could not be deleted.');
+    } finally {
+      setBulkDeleteBusy(false);
     }
   };
 
@@ -444,6 +498,8 @@ export function PdfManagerApp() {
   }
 
   const selectedFolderName = selectedFolder?.name || 'All documents';
+  const selectedFileCount = files.reduce((count, file) => count + (selectedFileIds.has(file.id) ? 1 : 0), 0);
+  const allFilesSelected = files.length > 0 && selectedFileCount === files.length;
 
   return (
     <div className={`pdf-manager-shell${mobileSidebarOpen ? ' mobile-sidebar-open' : ''}`}>
@@ -514,14 +570,33 @@ export function PdfManagerApp() {
           {workspaceError && <ErrorNotice>{workspaceError}</ErrorNotice>}
 
           <section className="manager-files-card">
-            <div className="manager-files-header"><div><h2>Documents</h2><p>PDFs saved in {selectedFolderName.toLowerCase()}.</p></div><span className="manager-file-count">{files.length} {files.length === 1 ? 'file' : 'files'}</span></div>
+            <div className="manager-files-header">
+              <div><h2>Documents</h2><p>PDFs saved in {selectedFolderName.toLowerCase()}.</p></div>
+              <div className="manager-files-header-actions">
+                {isSuperadmin && files.length > 0 && <>
+                  {selectedFileCount > 0 && <span className="manager-selected-count">{selectedFileCount} selected</span>}
+                  <button type="button" className="manager-select-all-button" onClick={handleToggleAllFileSelection} aria-pressed={allFilesSelected} disabled={bulkDeleteBusy}>
+                    {allFilesSelected ? 'Clear selection' : 'Select all'}
+                  </button>
+                  {selectedFileCount > 0 && <button type="button" className="manager-delete-selected" onClick={handleDeleteSelectedFiles} disabled={bulkDeleteBusy}>
+                    {bulkDeleteBusy ? <LoaderCircle className="manager-spin" size={17} /> : <Trash2 size={17} />}
+                    <span>{bulkDeleteBusy ? 'Deleting…' : `Delete selected (${selectedFileCount})`}</span>
+                  </button>}
+                </>}
+                <span className="manager-file-count">{files.length} {files.length === 1 ? 'file' : 'files'}</span>
+              </div>
+            </div>
             <div className="manager-file-list">
               {workspaceLoading ? <div className="manager-empty-state"><LoaderCircle className="manager-spin" size={21} /><span>Loading documents…</span></div> : files.length ? files.map((file) => (
-                <div className="manager-file-row" key={file.id}>
+                <div className={`manager-file-row${selectedFileIds.has(file.id) ? ' is-selected' : ''}`} key={file.id}>
+                  {isSuperadmin && <label className="manager-file-checkbox" title={`Select ${file.name}`}>
+                    <input type="checkbox" checked={selectedFileIds.has(file.id)} onChange={() => handleToggleFileSelection(file.id)} disabled={bulkDeleteBusy} aria-label={`Select ${file.name}`} />
+                    <span aria-hidden="true" />
+                  </label>}
                   <span className="manager-file-icon"><FileText size={19} /></span>
                   <div className="manager-file-details"><strong title={file.name}>{file.name}</strong><span>{formatBytes(file.size_bytes)}<i>·</i>{formatDate(file.created_at)}</span></div>
                   <button type="button" className="manager-open-file" onClick={() => setViewingFile(file)}><Eye size={15} /><span>View</span></button>
-                  {isSuperadmin && <button type="button" className="manager-row-icon danger" onClick={() => handleDeleteFile(file)} title="Delete PDF" aria-label={`Delete ${file.name}`}><Trash2 size={16} /></button>}
+                  {isSuperadmin && <button type="button" className="manager-row-icon danger" onClick={() => handleDeleteFile(file)} disabled={bulkDeleteBusy} title="Delete PDF" aria-label={`Delete ${file.name}`}><Trash2 size={16} /></button>}
                 </div>
               )) : <div className="manager-empty-state"><span className="manager-empty-icon"><FolderOpen size={22} /></span><strong>No PDFs here yet</strong><span>{isSuperadmin ? 'Upload a PDF to add it to this folder.' : 'PDFs added to this folder will appear here.'}</span></div>}
             </div>
