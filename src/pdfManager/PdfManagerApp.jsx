@@ -37,6 +37,7 @@ export function PdfManagerApp() {
   const [setupStatus, setSetupStatus] = useState(null);
   const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
+  const [passwordFieldsReady, setPasswordFieldsReady] = useState(false);
   const [pageError, setPageError] = useState('');
   const [toast, setToast] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState(null);
@@ -164,6 +165,7 @@ export function PdfManagerApp() {
     setToken(response.token);
     setUser(response.user);
     setPageError('');
+    if (response.user.mustChangePassword) setPasswordFieldsReady(false);
     setScreen(response.user.mustChangePassword ? 'change-password' : 'workspace');
   }, []);
 
@@ -489,13 +491,13 @@ export function PdfManagerApp() {
   if (screen === 'change-password') {
     return (
       <ManagerAuthLayout>
-        <form className="manager-auth-card" onSubmit={handleChangePassword}>
+        <form className="manager-auth-card" onSubmit={handleChangePassword} autoComplete="off">
           <span className="manager-auth-icon"><KeyRound size={21} /></span>
           <span className="manager-auth-eyebrow">ACCOUNT SECURITY</span>
           <h1>Choose a new password</h1>
           <p>Your temporary password must be replaced before you can continue.</p>
-          <label className="manager-field"><span>TEMPORARY PASSWORD</span><input name="currentPassword" type="password" autoComplete="current-password" required /></label>
-          <label className="manager-field"><span>NEW PASSWORD</span><input name="newPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
+          <label className="manager-field"><span>TEMPORARY PASSWORD</span><input name="currentPassword" type="password" autoComplete="off" readOnly={!passwordFieldsReady} onFocus={() => setPasswordFieldsReady(true)} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" required /></label>
+          <label className="manager-field"><span>NEW PASSWORD</span><input name="newPassword" type="password" autoComplete="off" readOnly={!passwordFieldsReady} onFocus={() => setPasswordFieldsReady(true)} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" minLength={12} maxLength={128} required /></label>
           {pageError && <ErrorNotice>{pageError}</ErrorNotice>}
           <button className="manager-primary-button" type="submit">Update password</button>
           <button className="manager-text-button" type="button" onClick={() => signOut()}>Sign out</button>
