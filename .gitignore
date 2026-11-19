@@ -1,6 +1,10 @@
 node_modules/
 dist/
 .vercel/
+.wrangler/
+.dev.vars
+cloudflare/.wrangler/
+cloudflare/.dev.vars
 .DS_Store
 .firebaserc
 .env

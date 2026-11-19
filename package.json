@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0"
+    "preview": "vite preview --host 0.0.0.0",
+    "manager:dev": "wrangler dev --config cloudflare/wrangler.toml --port 8787",
+    "manager:deploy": "wrangler deploy --config cloudflare/wrangler.toml",
+    "manager:migrate:local": "wrangler d1 migrations apply lal-construction-pdf-manager --local --config cloudflare/wrangler.toml",
+    "manager:migrate:remote": "wrangler d1 migrations apply lal-construction-pdf-manager --remote --config cloudflare/wrangler.toml"
   },
   "dependencies": {
     "firebase": "^11.10.0",
@@ -20,7 +24,8 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "wrangler": "^4.165.0"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.13.6"

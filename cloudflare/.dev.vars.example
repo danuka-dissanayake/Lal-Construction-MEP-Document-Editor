@@ -1,0 +1,6 @@
+# Copy to cloudflare/.dev.vars for local Worker development.
+# Use random values locally and never commit .dev.vars.
+PDF_MANAGER_SESSION_SECRET="replace-with-at-least-32-random-characters"
+PDF_MANAGER_BOOTSTRAP_TOKEN="replace-with-a-separate-random-one-time-setup-code"
+CORS_ORIGINS="http://localhost:5173,https://lal-construction-mep.vercel.app"
+SUPERADMIN_EMAIL="lal-construction@gmail.com"

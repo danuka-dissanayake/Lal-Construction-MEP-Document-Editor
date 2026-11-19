@@ -1,6 +1,6 @@
 # Lal Construction MEP PDF Editor
 
-A browser-based PDF editor for Lal Construction, built with React, Vite, PDF.js, pdf-lib, and Firebase Authentication. PDFs are opened and edited locally in the browser; no document upload service or backend is used. Firebase stores account/profile and role metadata only.
+A PDF editing workspace for Lal Construction, built with React, Vite, PDF.js, pdf-lib, and Firebase Authentication. PDFs opened in the editor are edited locally in the browser. A separate, private PDF Manager stores uploaded documents in Cloudflare R2 and folder/access metadata in Cloudflare D1 behind a role-checked Worker API.
 
 ## Run locally
 
@@ -50,7 +50,7 @@ The first admin must be assigned manually in Firestore. This prevents public sig
 
 New signups receive a `Preview` profile automatically. An administrator can search registered profiles by name/email and assign one of the available roles in the single-screen **Users & access** panel.
 
-## Roles and downloads
+## Editor roles and downloads
 
 | Role | Viewing | Editing | Download |
 | --- | --- | --- | --- |
@@ -59,9 +59,67 @@ New signups receive a `Preview` profile automatically. An administrator can sear
 | `Edit & Preview` | Yes | Yes | Original PDF and edited copy |
 | `admin` | Yes | Yes | Original PDF and edited copy, plus user management |
 
+These are editor/Firebase roles. The PDF Manager's separate `admin` and `superadmin` accounts are managed in D1 and do not grant access to the editor's user-management panel.
+
 Changing a role updates the profile listener for signed-in users. The editor hides or disables editing controls for Preview accounts and restores the originally opened PDF if an editable session is changed to Preview.
 
-**Important:** role checks in this app are client-side interface gating for the current local-PDF workflow. The documents never leave the user's device, so the role system is not a server-side document security boundary. Do not use it as access control for PDFs stored in a server or shared location. Whiteout annotations visually cover content but do not securely erase underlying PDF data.
+**Important:** the editor's existing Preview/Edit role checks remain client-side and apply only to PDFs opened in the editor; those PDFs are processed locally. The separate PDF Manager uses server-side authentication and role checks on every Worker request before exposing folder records or streaming a PDF from the private R2 bucket. Whiteout annotations in the editor visually cover content but do not securely erase underlying PDF data.
+
+## Private PDF Manager (Vercel + Cloudflare)
+
+The Manager lives at the unlisted path `/pdf-manager` and is not linked from the normal website. The path is not the security boundary: every Manager API call is authenticated by the Cloudflare Worker and checked against the role stored in D1. The R2 bucket must remain private; PDFs are served through the authenticated Worker only.
+
+The Manager has a separate email/password account system; it does not reuse Firebase sign-in or the editor's roles. Public signup is disabled. Configure the first Superadmin as `lal-construction@gmail.com` in `cloudflare/wrangler.toml`. The first account can be initialized once with the bootstrap secret. Superadmins can add or remove Admin accounts in the Manager; each newly created Admin receives a one-time temporary password and must change it at first sign-in. Share temporary passwords outside the app using a private channel.
+
+### Create Cloudflare resources and deploy the Worker
+
+1. Install dependencies and authenticate Wrangler with your Cloudflare account:
+
+   ```bash
+   npm install
+   npx wrangler login
+   ```
+
+2. Create the R2 bucket and D1 database using the names configured in `cloudflare/wrangler.toml`:
+
+   ```bash
+   npx wrangler r2 bucket create lal-construction-pdf-manager
+   npx wrangler d1 create lal-construction-pdf-manager
+   ```
+
+   Copy the D1 database ID returned by Wrangler into `database_id` in `cloudflare/wrangler.toml` (replace the placeholder). Keep the R2 bucket private; do not enable public access.
+
+3. Apply the D1 schema and configure two Worker secrets. Use separate random values of at least 32 characters for the session secret and one-time bootstrap token. Wrangler will prompt for each secret; do not commit them or put them in the Vite environment file.
+
+   ```bash
+   npm run manager:migrate:remote
+   npx wrangler secret put PDF_MANAGER_SESSION_SECRET --config cloudflare/wrangler.toml
+   npx wrangler secret put PDF_MANAGER_BOOTSTRAP_TOKEN --config cloudflare/wrangler.toml
+   npm run manager:deploy
+   ```
+
+4. In Vercel, set `VITE_PDF_MANAGER_API_URL` to the deployed Worker URL, for example `https://lal-construction-pdf-manager.<your-workers-subdomain>.workers.dev`, then redeploy the website. The Worker CORS allowlist is set to `https://lal-construction-mep.vercel.app` in `cloudflare/wrangler.toml`; update `CORS_ORIGINS` there if the production site uses another origin.
+
+5. Open `https://lal-construction-mep.vercel.app/pdf-manager`. Use the configured Superadmin email, the one-time bootstrap token, and a new unique password of at least 12 characters to initialize the account. After setup succeeds, remove the bootstrap secret:
+
+   ```bash
+   npx wrangler secret delete PDF_MANAGER_BOOTSTRAP_TOKEN --config cloudflare/wrangler.toml
+   ```
+
+### Manager permissions and local development
+
+- `admin` accounts can browse folders and view PDFs. They cannot upload, create folders, or delete content.
+- `superadmin` can create nested folders, upload PDFs, delete PDFs, delete empty folders, and manage Admin accounts. Delete a folder's contents and subfolders before deleting the folder itself.
+- Manager PDFs are limited to 25 MB each. The viewer does not provide a download action, but a website cannot prevent an authorized viewer from copying content they can see.
+- The page is not linked from the website and is marked `noindex`; neither measure replaces the server-side checks.
+
+For local testing, copy `cloudflare/.dev.vars.example` to `cloudflare/.dev.vars` and use random local-only values. Vite proxies same-origin `/api/manager` requests to the local Worker, so do not set a localhost API URL in browser configuration. Run the local D1 migration, Worker, and Vite app in separate terminals:
+
+```bash
+npm run manager:migrate:local
+npm run manager:dev
+npm run dev
+```
 
 ## Build and deploy
 
