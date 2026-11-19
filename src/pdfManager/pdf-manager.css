@@ -596,3 +596,157 @@
     transition-duration: .01ms !important;
   }
 }
+
+/* Light navigation-panel concept selected for the folder tree */
+.pdf-manager-layout { grid-template-columns: 340px minmax(0, 1fr); }
+.pdf-manager-sidebar {
+  color: #26384d;
+  background: #f3f6fa;
+  border-right: 1px solid #d9e1eb;
+}
+.manager-sidebar-heading {
+  min-height: 76px;
+  padding: 0 10px 18px;
+  color: #172b43;
+  letter-spacing: 0;
+}
+.manager-sidebar-heading > div > span {
+  color: #172b43;
+  font-size: 24px;
+  font-weight: 760;
+  letter-spacing: -.55px;
+}
+.manager-sidebar-heading small { color: #6f7f93; font-size: 13px; }
+.manager-sidebar-count {
+  min-width: 40px;
+  height: 40px;
+  border-color: #e0e7ef;
+  border-radius: 12px;
+  color: #34475f;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(37,55,77,.045);
+  font-size: 15px;
+}
+.manager-folder-search {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 0 0 17px;
+  padding: 0 14px;
+  border: 1px solid #d5dee8;
+  border-radius: 13px;
+  color: #68798e;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(37,55,77,.04);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.manager-folder-search:focus-within {
+  border-color: #91afd0;
+  box-shadow: 0 0 0 4px rgba(50,110,181,.12);
+}
+.manager-folder-search > svg { flex: 0 0 20px; }
+.manager-folder-search input {
+  width: 100%;
+  min-width: 0;
+  height: 50px;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: #2f4055;
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+}
+.manager-folder-search input::placeholder { color: #8997a7; opacity: 1; }
+.manager-folder-search input::-webkit-search-cancel-button { display: none; }
+.manager-folder-search button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: #708198;
+  background: transparent;
+  cursor: pointer;
+}
+.manager-folder-search button:hover { color: #2d5f98; background: #edf3f9; }
+.manager-root-folder, .manager-folder-select { color: #304258; }
+.manager-root-folder { margin-bottom: 15px; }
+.manager-root-folder:hover, .manager-folder-select:hover {
+  color: #1e426d;
+  background: #e9eff6;
+}
+.manager-root-folder.is-selected {
+  color: #234e80;
+  background: #e5effb;
+  box-shadow: inset 3px 0 #3679be;
+}
+.manager-folder-tree {
+  padding: 4px 0 12px;
+  scrollbar-color: rgba(102,123,148,.32) transparent;
+}
+.manager-folder-row { min-height: 50px; }
+.manager-folder-expander { color: #77889c; }
+.manager-folder-expander:hover { color: #385a80; background: #e7edf4; }
+.manager-folder-expander-spacer { height: 44px; }
+.manager-folder-select {
+  height: 46px;
+  min-height: 46px;
+  border-radius: 11px;
+  color: #35485e;
+  font-size: 16px;
+  font-weight: 560;
+}
+.manager-folder-select svg { color: #71869d; }
+.manager-folder-children {
+  margin: 1px 0 7px 17px;
+  padding: 3px 0 3px 15px;
+  border-left: 1px solid #c8d3df;
+}
+.manager-folder-children .manager-folder-row::before {
+  left: -15px;
+  width: 14px;
+  background: #c8d3df;
+}
+.manager-folder-row.is-selected .manager-folder-select {
+  color: #244f80;
+  background: #e1edfa;
+  box-shadow: inset 3px 0 #3679be;
+  font-weight: 700;
+}
+.manager-folder-row.is-selected .manager-folder-select svg { color: #3478bd; }
+.manager-folder-delete { color: #9a7180; opacity: .58; }
+.manager-folder-delete:hover:not(:disabled) {
+  color: #a53348;
+  background: #fae9ed;
+}
+.manager-folder-delete:disabled { opacity: .24; }
+.manager-folder-empty { margin: 12px; color: #718095; font-size: 14px; }
+.manager-sidebar-footer {
+  border-top-color: #dce4ec;
+  color: #77879a;
+  font-size: 13px;
+}
+.manager-sidebar-footer svg { color: #4f9867; }
+
+@media (max-width: 1000px) {
+  .pdf-manager-layout { grid-template-columns: 300px minmax(0, 1fr); }
+}
+
+@media (max-width: 680px) {
+  .pdf-manager-sidebar {
+    width: min(330px, calc(100vw - 44px));
+    background: #f3f6fa;
+    border-right: 1px solid #d9e1eb;
+    box-shadow: 14px 0 34px rgba(20,40,65,.18);
+  }
+  .manager-sidebar-heading { min-height: 72px; }
+  .manager-folder-search { min-height: 52px; margin-bottom: 14px; }
+  .manager-folder-search input { height: 48px; font-size: 16px; }
+  .manager-folder-select { min-height: 48px; height: 48px; }
+}

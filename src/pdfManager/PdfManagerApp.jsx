@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   Plus,
+  Search,
   ShieldCheck,
   Trash2,
   Upload,
@@ -40,6 +41,7 @@ export function PdfManagerApp() {
   const [toast, setToast] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState(null);
   const [folders, setFolders] = useState([]);
+  const [folderSearch, setFolderSearch] = useState('');
   const [files, setFiles] = useState([]);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [workspaceError, setWorkspaceError] = useState('');
@@ -232,6 +234,8 @@ export function PdfManagerApp() {
   }, [loadWorkspace]);
 
   const folderTree = useMemo(() => buildFolderTree(folders), [folders]);
+  const visibleFolderTree = useMemo(() => filterFolderTree(folderTree, folderSearch), [folderTree, folderSearch]);
+  const folderSearchActive = Boolean(folderSearch.trim());
   const foldersById = useMemo(() => new Map(folders.map((folder) => [folder.id, folder])), [folders]);
   const selectedFolder = selectedFolderId ? foldersById.get(selectedFolderId) : null;
   const breadcrumbs = useMemo(() => getFolderBreadcrumbs(selectedFolderId, foldersById), [selectedFolderId, foldersById]);
@@ -458,27 +462,33 @@ export function PdfManagerApp() {
         {mobileSidebarOpen && <button className="manager-sidebar-backdrop" type="button" aria-label="Close folder navigation" onClick={() => setMobileSidebarOpen(false)} />}
         <aside className="pdf-manager-sidebar">
           <div className="manager-sidebar-heading">
-            <div><span>FOLDERS</span><small>{folders.length} {folders.length === 1 ? 'folder' : 'folders'} in your library</small></div>
+            <div><span>Folders</span><small>{folders.length} {folders.length === 1 ? 'folder' : 'folders'} in your library</small></div>
             <span className="manager-sidebar-count" aria-label={`${folders.length} folders`}>{folders.length}</span>
           </div>
+          <label className="manager-folder-search">
+            <Search size={20} aria-hidden="true" />
+            <input type="search" value={folderSearch} onChange={(event) => setFolderSearch(event.target.value)} placeholder="Search folders" aria-label="Search folders" autoComplete="off" />
+            {folderSearch && <button type="button" onClick={() => setFolderSearch('')} aria-label="Clear folder search" title="Clear search"><X size={18} /></button>}
+          </label>
           <button type="button" className={`manager-root-folder${selectedFolderId ? '' : ' is-selected'}`} onClick={() => { setSelectedFolderId(null); setMobileSidebarOpen(false); }} aria-current={selectedFolderId ? undefined : 'page'}>
-            <FolderOpen size={19} /><span>All documents</span>
+            <FolderOpen size={21} /><span>All documents</span>
           </button>
-          <div className="manager-folder-tree" aria-label="Folder structure">
-            {folderTree.length ? folderTree.map((folder) => (
+          <nav className="manager-folder-tree" aria-label="Folder structure">
+            {visibleFolderTree.length ? visibleFolderTree.map((folder) => (
               <FolderBranch
                 key={folder.id}
                 folder={folder}
                 selectedFolderId={selectedFolderId}
                 collapsedFolders={collapsedFolders}
+                expandForSearch={folderSearchActive}
                 isSuperadmin={isSuperadmin}
                 onSelect={(id) => { setSelectedFolderId(id); setMobileSidebarOpen(false); }}
                 onToggle={(id) => setCollapsedFolders((current) => toggleSet(current, id))}
                 onDelete={handleDeleteFolder}
               />
-            )) : !workspaceLoading && <p className="manager-folder-empty">Your folders will appear here.</p>}
-          </div>
-          <div className="manager-sidebar-footer"><ShieldCheck size={16} /><span>Private workspace</span></div>
+            )) : !workspaceLoading && <p className="manager-folder-empty">{folderSearchActive ? 'No folders match your search.' : 'Your folders will appear here.'}</p>}
+          </nav>
+          <div className="manager-sidebar-footer"><ShieldCheck size={17} /><span>Private workspace</span></div>
         </aside>
 
         <main className="pdf-manager-main">
@@ -581,25 +591,26 @@ function ErrorNotice({ children }) {
   return <div className="manager-error-notice" role="alert"><AlertCircle size={16} /><span>{children}</span></div>;
 }
 
-function FolderBranch({ folder, selectedFolderId, collapsedFolders, isSuperadmin, onSelect, onToggle, onDelete }) {
+function FolderBranch({ folder, selectedFolderId, collapsedFolders, expandForSearch, isSuperadmin, onSelect, onToggle, onDelete }) {
   const isCollapsed = collapsedFolders.has(folder.id);
   const hasChildren = folder.children.length > 0;
+  const expanded = hasChildren && (!isCollapsed || expandForSearch);
   const selected = selectedFolderId === folder.id;
   const empty = Number(folder.child_count) === 0 && Number(folder.file_count) === 0;
   return (
     <div className="manager-folder-branch">
       <div className={`manager-folder-row${selected ? ' is-selected' : ''}`}>
         {hasChildren ? (
-          <button type="button" className="manager-folder-expander" onClick={() => onToggle(folder.id)} aria-label={isCollapsed ? `Expand ${folder.name}` : `Collapse ${folder.name}`} aria-expanded={!isCollapsed}>
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          <button type="button" className="manager-folder-expander" onClick={() => onToggle(folder.id)} aria-label={expanded ? `Collapse ${folder.name}` : `Expand ${folder.name}`} aria-expanded={expanded}>
+            {expanded ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
           </button>
         ) : <span className="manager-folder-expander-spacer" />}
         <button type="button" className="manager-folder-select" onClick={() => onSelect(folder.id)} title={folder.name} aria-current={selected ? 'page' : undefined}>
-          {hasChildren && !isCollapsed ? <FolderOpen size={19} /> : <Folder size={19} />}<span>{folder.name}</span>
+          {expanded ? <FolderOpen size={20} /> : <Folder size={20} />}<span>{folder.name}</span>
         </button>
         {isSuperadmin && <button type="button" className="manager-folder-delete" disabled={!empty} title={empty ? `Delete ${folder.name}` : 'Delete files and subfolders first'} aria-label={`Delete ${folder.name}`} onClick={() => onDelete(folder)}><Trash2 size={16} /></button>}
       </div>
-      {hasChildren && !isCollapsed && <div className="manager-folder-children">{folder.children.map((child) => <FolderBranch key={child.id} folder={child} selectedFolderId={selectedFolderId} collapsedFolders={collapsedFolders} isSuperadmin={isSuperadmin} onSelect={onSelect} onToggle={onToggle} onDelete={onDelete} />)}</div>}
+      {expanded && <div className="manager-folder-children">{folder.children.map((child) => <FolderBranch key={child.id} folder={child} selectedFolderId={selectedFolderId} collapsedFolders={collapsedFolders} expandForSearch={expandForSearch} isSuperadmin={isSuperadmin} onSelect={onSelect} onToggle={onToggle} onDelete={onDelete} />)}</div>}
     </div>
   );
 }
@@ -748,6 +759,18 @@ function buildFolderTree(folders) {
   };
   sortTree(roots);
   return roots;
+}
+
+function filterFolderTree(folders, query) {
+  const normalizedQuery = String(query || '').trim().toLocaleLowerCase();
+  if (!normalizedQuery) return folders;
+  return folders.reduce((matches, folder) => {
+    const children = filterFolderTree(folder.children, normalizedQuery);
+    if (folder.name.toLocaleLowerCase().includes(normalizedQuery) || children.length) {
+      matches.push({ ...folder, children });
+    }
+    return matches;
+  }, []);
 }
 
 function getFolderBreadcrumbs(folderId, foldersById) {
