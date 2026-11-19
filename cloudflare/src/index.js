@@ -527,7 +527,7 @@ async function changePassword(request, env, user, cors) {
   const newPassword = String(body.newPassword || '');
   validatePassword(newPassword);
   const current = await derivePassword(currentPassword, user.password_salt);
-  if (!constantTimeEqual(current.hash, user.password_hash)) throw new HttpError(401, 'The current password is incorrect.');
+  if (!constantTimeEqual(current.hash, user.password_hash)) throw new HttpError(400, 'The current password is incorrect.');
   if (constantTimeEqual(current.hash, await derivePassword(newPassword, user.password_salt).then((result) => result.hash))) {
     throw new HttpError(400, 'Choose a new password that is different from the current one.');
   }

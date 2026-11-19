@@ -147,7 +147,14 @@ export function PdfManagerApp() {
     try {
       return await managerRequest(path, { ...options, token });
     } catch (error) {
-      if (error.status === 401 && token) signOut('Your session expired. Sign in again.');
+      // Older deployed Workers report an incorrect temporary password as 401.
+      // Keep the Admin on this form so they can correct it; only sign out when
+      // the session itself has expired or been revoked.
+      const incorrectCurrentPassword = path === '/change-password'
+        && error.message === 'The current password is incorrect.';
+      if (error.status === 401 && token && !incorrectCurrentPassword) {
+        signOut('Your session expired. Sign in again.');
+      }
       throw error;
     }
   }, [signOut, token]);
