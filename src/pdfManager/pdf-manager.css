@@ -62,8 +62,6 @@
 .pdf-manager-layout { min-height: 0; flex: 1; display: grid; grid-template-columns: 260px minmax(0, 1fr); overflow: hidden; }
 .pdf-manager-sidebar { min-height: 0; display: flex; flex-direction: column; padding: 19px 12px 13px; color: #e8eef7; background: var(--manager-navy); border-right: 1px solid rgba(13,30,53,.22); }
 .manager-sidebar-heading { height: 28px; display: flex; align-items: flex-start; justify-content: space-between; padding: 0 9px; color: #a7bad2; font-size: 9px; font-weight: 800; letter-spacing: 1px; }
-.manager-sidebar-heading button { width: 25px; height: 25px; display: grid; place-items: center; margin-top: -5px; padding: 0; border: 0; border-radius: 6px; color: #d9e7f6; background: transparent; cursor: pointer; }
-.manager-sidebar-heading button:hover { background: rgba(255,255,255,.13); }
 .manager-root-folder, .manager-folder-select {
   min-width: 0;
   height: 35px;
@@ -99,8 +97,6 @@
 .manager-folder-delete:hover:not(:disabled) { color: #fff; background: rgba(218,67,78,.4); opacity: 1; }
 .manager-folder-delete:disabled { opacity: .18; cursor: not-allowed; }
 .manager-folder-empty { margin: 6px 9px; color: #9eb1c8; font-size: 9px; line-height: 1.5; }
-.manager-sidebar-create { height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 12px; border: 1px solid rgba(222,234,248,.2); border-radius: 7px; color: #eff6ff; background: rgba(255,255,255,.06); font: inherit; font-size: 10px; font-weight: 650; cursor: pointer; }
-.manager-sidebar-create:hover { background: rgba(255,255,255,.13); }
 .manager-sidebar-footer { min-height: 34px; display: flex; align-items: flex-end; gap: 7px; padding: 9px 5px 0; border-top: 1px solid rgba(220,232,246,.13); color: #9db0c7; font-size: 9px; }
 .manager-sidebar-footer svg { color: #85c49b; }
 
@@ -294,4 +290,309 @@
 
 @media (max-height: 680px) and (max-width: 680px) {
   .manager-auth-page { padding-top: 88px; }
+}
+
+/* Readability and responsive workspace refresh */
+.pdf-manager-shell {
+  --manager-navy: #1e385d;
+  --manager-navy-deep: #172d4b;
+  --manager-blue: #326eb5;
+  --manager-line: #e1e7ef;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #f4f7fb;
+  font-size: 16px;
+}
+
+.pdf-manager-topbar {
+  min-height: 76px;
+  flex-basis: 76px;
+  gap: 18px;
+  padding: 0 clamp(16px, 2.2vw, 30px);
+  background: linear-gradient(105deg, #1e385d, #1a3456);
+}
+.pdf-manager-logo { width: 176px; }
+.pdf-manager-title { gap: 5px; }
+.pdf-manager-title strong { font-size: 16px; }
+.pdf-manager-title span { font-size: 10px; }
+.pdf-manager-account { gap: 5px; }
+.manager-role-pill { gap: 7px; font-size: 12px; }
+.pdf-manager-account-email { font-size: 11px; }
+.manager-header-button, .manager-header-icon, .manager-mobile-menu {
+  min-height: 42px;
+  height: 42px;
+  gap: 9px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+.manager-header-icon { width: 42px; padding: 0; }
+
+.pdf-manager-layout { grid-template-columns: 288px minmax(0, 1fr); }
+.pdf-manager-sidebar {
+  padding: 24px 14px 16px;
+  background: linear-gradient(180deg, #203d64 0%, #192f4e 100%);
+}
+.manager-sidebar-heading {
+  height: auto;
+  min-height: 52px;
+  align-items: center;
+  padding: 0 9px 16px;
+  color: #e8f0f9;
+  font-size: 13px;
+  letter-spacing: 1.1px;
+}
+.manager-sidebar-heading > div { display: flex; flex-direction: column; gap: 5px; }
+.manager-sidebar-heading > div > span { color: #f1f6fc; font-size: 13px; }
+.manager-sidebar-heading small { color: #b4c6dc; font-size: 12px; font-weight: 450; letter-spacing: 0; }
+.manager-sidebar-count {
+  min-width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0 8px;
+  border: 1px solid rgba(224, 236, 250, .16);
+  border-radius: 10px;
+  color: #e9f2fc;
+  background: rgba(255,255,255,.08);
+  font-size: 12px;
+  font-weight: 700;
+}
+.manager-root-folder, .manager-folder-select {
+  min-height: 44px;
+  gap: 11px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.manager-root-folder { height: 48px; margin: 0 0 14px; }
+.manager-root-folder svg { flex: 0 0 20px; }
+.manager-root-folder.is-selected, .manager-folder-row.is-selected .manager-folder-select {
+  color: #fff;
+  background: rgba(255,255,255,.16);
+  box-shadow: inset 3px 0 #8bbcff;
+}
+.manager-root-folder:focus-visible, .manager-folder-select:focus-visible, .manager-folder-expander:focus-visible,
+.manager-folder-delete:focus-visible, .manager-open-file:focus-visible, .manager-row-icon:focus-visible,
+.manager-header-button:focus-visible, .manager-header-icon:focus-visible, .manager-content-actions button:focus-visible {
+  outline: 3px solid #9bc7ff;
+  outline-offset: 2px;
+}
+.manager-folder-tree { padding: 6px 0 12px; scrollbar-color: rgba(217,229,244,.4) transparent; }
+.manager-folder-row { position: relative; min-height: 46px; gap: 3px; padding: 2px; }
+.manager-folder-expander {
+  width: 32px;
+  height: 40px;
+  flex-basis: 32px;
+  border-radius: 8px;
+  color: #bdcde0;
+}
+.manager-folder-expander:hover { color: #fff; background: rgba(255,255,255,.08); }
+.manager-folder-expander-spacer { width: 32px; height: 40px; flex: 0 0 32px; }
+.manager-folder-select {
+  height: 42px;
+  min-height: 42px;
+  gap: 10px;
+  padding: 0 11px;
+  color: #e5edf7;
+  font-size: 14px;
+}
+.manager-folder-select svg { flex-basis: 19px; color: #c0d0e3; }
+.manager-folder-row.is-selected .manager-folder-select svg { color: #d7e9ff; }
+.manager-folder-children {
+  margin: 1px 0 5px 17px;
+  padding: 3px 0 3px 13px;
+  border-left: 1px solid rgba(211, 226, 244, .28);
+}
+.manager-folder-children .manager-folder-row::before {
+  position: absolute;
+  top: 50%;
+  left: -13px;
+  width: 12px;
+  height: 1px;
+  background: rgba(211, 226, 244, .28);
+  content: '';
+}
+.manager-folder-delete {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+  border-radius: 8px;
+  opacity: .8;
+}
+.manager-folder-delete:disabled { opacity: .22; }
+.manager-folder-delete:hover:not(:disabled) { background: rgba(218,67,78,.34); }
+.manager-folder-empty { margin: 10px; color: #c0cee0; font-size: 13px; line-height: 1.55; }
+.manager-sidebar-footer { min-height: 44px; gap: 9px; padding: 12px 5px 2px; font-size: 12px; }
+.manager-sidebar-footer svg { flex: 0 0 16px; }
+
+.pdf-manager-main { padding: 38px clamp(22px, 4vw, 62px) 34px; background: #f4f7fb; }
+.manager-content-heading { gap: 24px; margin-bottom: 28px; }
+.manager-breadcrumbs { min-height: 22px; gap: 8px; font-size: 12px; }
+.manager-breadcrumbs svg { width: 15px; height: 15px; }
+.manager-content-heading h1 { margin: 8px 0 5px; font-size: 32px; letter-spacing: -.8px; }
+.manager-content-heading p { font-size: 14px; }
+.manager-content-actions { gap: 10px; }
+.manager-primary-button, .manager-secondary-button {
+  min-height: 46px;
+  gap: 9px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.manager-upload-button { min-width: 148px; }
+.manager-files-card { border-color: #e1e7ef; border-radius: 16px; box-shadow: 0 8px 24px rgba(28,48,75,.055); }
+.manager-files-header { min-height: 82px; padding: 0 24px; }
+.manager-files-header h2 { font-size: 18px; }
+.manager-files-header p { margin-top: 5px; font-size: 13px; }
+.manager-file-count { padding: 7px 11px; font-size: 12px; }
+.manager-file-list { min-height: 260px; }
+.manager-file-row { min-height: 82px; gap: 15px; padding: 14px 24px; }
+.manager-file-icon { width: 44px; height: 46px; flex-basis: 44px; border-radius: 11px; }
+.manager-file-details { gap: 7px; }
+.manager-file-details strong { font-size: 15px; }
+.manager-file-details span { gap: 9px; font-size: 12px; }
+.manager-open-file { min-width: 82px; height: 42px; gap: 8px; padding: 0 13px; border-radius: 9px; font-size: 13px; }
+.manager-row-icon { width: 40px; height: 40px; flex-basis: 40px; border-radius: 9px; }
+.manager-empty-state { min-height: 260px; gap: 11px; color: #7b8796; font-size: 14px; }
+.manager-empty-state strong { font-size: 16px; }
+.manager-empty-icon { width: 52px; height: 52px; }
+.manager-main-footnote { margin-top: 16px; font-size: 12px; }
+.manager-toast { gap: 10px; padding: 13px 16px; font-size: 14px; }
+.manager-error-notice { gap: 10px; padding: 12px 14px; border-radius: 10px; font-size: 14px; }
+
+.manager-auth-card { width: min(100%, 460px); gap: 17px; padding: 36px 38px 32px; }
+.manager-auth-icon { width: 50px; height: 50px; border-radius: 15px; }
+.manager-auth-eyebrow { font-size: 11px; }
+.manager-auth-card h1 { font-size: 28px; }
+.manager-auth-card > p { font-size: 15px; }
+.manager-field { gap: 8px; }
+.manager-field > span { font-size: 12px; }
+.manager-field input { height: 48px; padding: 0 14px; border-radius: 9px; font-size: 15px; }
+.manager-auth-card .manager-primary-button { min-height: 50px; font-size: 15px; }
+.manager-auth-card .manager-text-button { font-size: 14px; }
+.manager-form-footnote { font-size: 12px !important; }
+.manager-status-card p { font-size: 15px; }
+
+.manager-modal-backdrop { padding: 24px; }
+.manager-dialog, .manager-admin-panel { border-radius: 18px; }
+.manager-dialog { gap: 16px; padding: 28px; }
+.manager-dialog h2 { font-size: 22px; }
+.manager-dialog > p { font-size: 14px; }
+.manager-dialog-actions { gap: 10px; }
+.manager-admin-panel { gap: 18px; padding: 26px; }
+.manager-admin-panel-header h2 { font-size: 20px; }
+.manager-admin-panel-header p { font-size: 13px; }
+.manager-admin-create { gap: 12px; padding: 18px; }
+.manager-admin-list-heading { font-size: 14px; }
+.manager-admin-list-heading span { min-width: 28px; height: 28px; font-size: 12px; }
+.manager-admin-row { min-height: 68px; gap: 12px; padding: 10px 14px; }
+.manager-admin-avatar { width: 38px; height: 38px; flex-basis: 38px; font-size: 14px; }
+.manager-admin-email strong { font-size: 14px; }
+.manager-admin-email span { font-size: 12px; }
+.manager-admin-panel-footer { gap: 9px; font-size: 12px; }
+.manager-issued-password { gap: 15px; padding: 16px; }
+.manager-issued-password strong { font-size: 13px; }
+.manager-issued-password p { font-size: 12px; }
+.manager-issued-password code { font-size: 14px; }
+.manager-viewer-header { min-height: 76px; gap: 18px; padding: 0 20px; }
+.manager-viewer-file strong { font-size: 14px; }
+.manager-viewer-file small { font-size: 12px; }
+.manager-viewer-controls { gap: 10px; font-size: 13px; }
+.manager-page-control { min-height: 40px; padding: 0 12px; font-size: 12px; }
+.manager-rendering-indicator { gap: 7px; padding: 8px 10px; font-size: 11px; }
+
+@media (max-width: 1000px) {
+  .pdf-manager-layout { grid-template-columns: 270px minmax(0, 1fr); }
+  .pdf-manager-main { padding: 30px 28px 28px; }
+}
+
+@media (max-width: 680px) {
+  .pdf-manager-topbar { min-height: 64px; flex-basis: 64px; gap: 10px; padding: 0 12px; }
+  .manager-mobile-menu { display: inline-flex; width: 42px; min-width: 42px; height: 42px; padding: 0; }
+  .pdf-manager-logo { width: 126px; }
+  .pdf-manager-title strong { max-width: 155px; font-size: 13px; }
+  .pdf-manager-title span { font-size: 9px; }
+  .manager-header-button { width: 42px; min-width: 42px; padding: 0; }
+  .manager-header-button span { display: none; }
+  .manager-header-icon { width: 40px; min-width: 40px; height: 42px; }
+  .pdf-manager-layout { display: block; }
+  .pdf-manager-sidebar { top: 64px; width: min(320px, calc(100vw - 44px)); padding: 22px 14px 16px; }
+  .manager-sidebar-backdrop { inset: 64px 0 0; }
+  .manager-sidebar-heading > div > span { font-size: 14px; }
+  .manager-root-folder { min-height: 48px; font-size: 15px; }
+  .manager-folder-row { min-height: 46px; }
+  .manager-folder-select { font-size: 14px; }
+  .manager-folder-delete { width: 38px; height: 38px; flex-basis: 38px; }
+  .pdf-manager-main { height: 100%; padding: 26px 18px 24px; }
+  .manager-content-heading { align-items: stretch; flex-direction: column; gap: 17px; margin-bottom: 20px; }
+  .manager-content-heading h1 { max-width: calc(100vw - 36px); font-size: 28px; }
+  .manager-content-heading p { font-size: 14px; }
+  .manager-content-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 10px; }
+  .manager-content-actions > button { width: 100%; min-width: 0; min-height: 48px; padding: 0 10px; font-size: 13px; }
+  .manager-files-header { min-height: 76px; padding: 0 16px; }
+  .manager-files-header h2 { font-size: 17px; }
+  .manager-files-header p { font-size: 12px; }
+  .manager-file-row { min-height: 74px; gap: 9px; padding: 11px 12px; }
+  .manager-file-icon { width: 36px; height: 38px; flex-basis: 36px; }
+  .manager-file-details strong { font-size: 14px; }
+  .manager-file-details span { gap: 5px; font-size: 11px; }
+  .manager-open-file { min-width: 62px; width: auto; height: 40px; padding: 0 9px; font-size: 12px; }
+  .manager-open-file span { display: inline; }
+  .manager-row-icon { width: 38px; height: 38px; flex-basis: 38px; }
+  .manager-empty-state { min-height: 230px; font-size: 13px; }
+  .manager-empty-state strong { font-size: 15px; }
+  .manager-main-footnote { font-size: 12px; }
+  .manager-auth-page { justify-content: flex-start; padding: 96px 16px 28px; }
+  .manager-auth-brand { top: 18px; left: 16px; }
+  .manager-auth-brand img { width: 168px; }
+  .manager-auth-card { width: 100%; gap: 15px; padding: 27px 22px 24px; }
+  .manager-auth-card h1 { font-size: 24px; }
+  .manager-auth-card > p { font-size: 14px; }
+  .manager-field > span { font-size: 11px; }
+  .manager-field input { height: 48px; font-size: 16px; }
+  .manager-form-footnote { font-size: 11px !important; }
+  .manager-admin-panel { width: 100%; max-height: 94dvh; gap: 15px; padding: 18px; }
+  .manager-admin-panel-header h2 { font-size: 18px; }
+  .manager-admin-create { align-items: stretch; flex-direction: column; padding: 14px; }
+  .manager-admin-create .manager-primary-button { align-self: stretch; }
+  .manager-viewer-backdrop { padding: 8px; }
+  .manager-viewer { width: 100%; height: 94dvh; }
+  .manager-viewer-header { min-height: 62px; gap: 8px; padding: 8px 10px; }
+  .manager-viewer-file { flex: 1 1 calc(100% - 52px); }
+  .manager-viewer-file .manager-file-icon { display: grid; }
+  .manager-viewer-controls { order: 3; flex: 1 0 100%; justify-content: center; gap: 8px; font-size: 12px; }
+  .manager-page-control { min-height: 38px; padding: 0 10px; font-size: 12px; }
+  .manager-modal-backdrop { padding: 12px; }
+  .manager-dialog { padding: 22px; }
+  .manager-dialog h2 { font-size: 20px; }
+  .manager-dialog > p { font-size: 13px; }
+}
+
+@media (max-width: 380px) {
+  .pdf-manager-topbar { gap: 7px; padding: 0 8px; }
+  .pdf-manager-logo { width: 108px; }
+  .pdf-manager-title strong { max-width: 112px; font-size: 12px; }
+  .pdf-manager-title span { font-size: 8px; }
+  .manager-mobile-menu { width: 38px; min-width: 38px; height: 40px; }
+  .manager-header-icon { width: 36px; min-width: 36px; }
+  .manager-content-actions { grid-template-columns: 1fr; }
+  .manager-content-actions > button { min-height: 46px; }
+  .manager-file-row { gap: 7px; padding: 10px 8px; }
+  .manager-file-icon { width: 32px; flex-basis: 32px; }
+  .manager-file-details strong { font-size: 13px; }
+  .manager-open-file { min-width: 40px; width: 40px; padding: 0; }
+  .manager-open-file span { display: none; }
+  .manager-row-icon { width: 34px; height: 34px; flex-basis: 34px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-manager-shell *, .pdf-manager-shell *::before, .pdf-manager-shell *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }

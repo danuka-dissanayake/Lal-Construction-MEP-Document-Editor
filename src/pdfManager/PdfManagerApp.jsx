@@ -457,16 +457,18 @@ export function PdfManagerApp() {
       <div className="pdf-manager-layout">
         {mobileSidebarOpen && <button className="manager-sidebar-backdrop" type="button" aria-label="Close folder navigation" onClick={() => setMobileSidebarOpen(false)} />}
         <aside className="pdf-manager-sidebar">
-          <div className="manager-sidebar-heading"><span>FOLDERS</span>{isSuperadmin && <button type="button" onClick={() => { setFolderName(''); setFolderDialogOpen(true); }} title="Create folder"><FolderPlus size={16} /></button>}</div>
-          <button type="button" className={`manager-root-folder${selectedFolderId ? '' : ' is-selected'}`} onClick={() => { setSelectedFolderId(null); setMobileSidebarOpen(false); }}>
-            <FolderOpen size={17} /><span>All documents</span>
+          <div className="manager-sidebar-heading">
+            <div><span>FOLDERS</span><small>{folders.length} {folders.length === 1 ? 'folder' : 'folders'} in your library</small></div>
+            <span className="manager-sidebar-count" aria-label={`${folders.length} folders`}>{folders.length}</span>
+          </div>
+          <button type="button" className={`manager-root-folder${selectedFolderId ? '' : ' is-selected'}`} onClick={() => { setSelectedFolderId(null); setMobileSidebarOpen(false); }} aria-current={selectedFolderId ? undefined : 'page'}>
+            <FolderOpen size={19} /><span>All documents</span>
           </button>
-          <div className="manager-folder-tree">
+          <div className="manager-folder-tree" aria-label="Folder structure">
             {folderTree.length ? folderTree.map((folder) => (
               <FolderBranch
                 key={folder.id}
                 folder={folder}
-                depth={0}
                 selectedFolderId={selectedFolderId}
                 collapsedFolders={collapsedFolders}
                 isSuperadmin={isSuperadmin}
@@ -474,10 +476,9 @@ export function PdfManagerApp() {
                 onToggle={(id) => setCollapsedFolders((current) => toggleSet(current, id))}
                 onDelete={handleDeleteFolder}
               />
-            )) : !workspaceLoading && <p className="manager-folder-empty">Folders you create will appear here.</p>}
+            )) : !workspaceLoading && <p className="manager-folder-empty">Your folders will appear here.</p>}
           </div>
-          {isSuperadmin && <button className="manager-sidebar-create" type="button" onClick={() => { setFolderName(''); setFolderDialogOpen(true); }}><Plus size={16} /> New folder</button>}
-          <div className="manager-sidebar-footer"><ShieldCheck size={14} /><span>Private workspace</span></div>
+          <div className="manager-sidebar-footer"><ShieldCheck size={16} /><span>Private workspace</span></div>
         </aside>
 
         <main className="pdf-manager-main">
@@ -580,22 +581,25 @@ function ErrorNotice({ children }) {
   return <div className="manager-error-notice" role="alert"><AlertCircle size={16} /><span>{children}</span></div>;
 }
 
-function FolderBranch({ folder, depth, selectedFolderId, collapsedFolders, isSuperadmin, onSelect, onToggle, onDelete }) {
+function FolderBranch({ folder, selectedFolderId, collapsedFolders, isSuperadmin, onSelect, onToggle, onDelete }) {
   const isCollapsed = collapsedFolders.has(folder.id);
   const hasChildren = folder.children.length > 0;
+  const selected = selectedFolderId === folder.id;
   const empty = Number(folder.child_count) === 0 && Number(folder.file_count) === 0;
   return (
     <div className="manager-folder-branch">
-      <div className={`manager-folder-row${selectedFolderId === folder.id ? ' is-selected' : ''}`} style={{ '--folder-depth': depth }}>
-        <button type="button" className="manager-folder-expander" onClick={() => onToggle(folder.id)} aria-label={isCollapsed ? `Expand ${folder.name}` : `Collapse ${folder.name}`}>
-          {hasChildren ? (isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />) : <span />}
+      <div className={`manager-folder-row${selected ? ' is-selected' : ''}`}>
+        {hasChildren ? (
+          <button type="button" className="manager-folder-expander" onClick={() => onToggle(folder.id)} aria-label={isCollapsed ? `Expand ${folder.name}` : `Collapse ${folder.name}`} aria-expanded={!isCollapsed}>
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+          </button>
+        ) : <span className="manager-folder-expander-spacer" />}
+        <button type="button" className="manager-folder-select" onClick={() => onSelect(folder.id)} title={folder.name} aria-current={selected ? 'page' : undefined}>
+          {hasChildren && !isCollapsed ? <FolderOpen size={19} /> : <Folder size={19} />}<span>{folder.name}</span>
         </button>
-        <button type="button" className="manager-folder-select" onClick={() => onSelect(folder.id)} title={folder.name}>
-          <Folder size={15} /><span>{folder.name}</span>
-        </button>
-        {isSuperadmin && <button type="button" className="manager-folder-delete" disabled={!empty} title={empty ? `Delete ${folder.name}` : 'Delete files and subfolders first'} aria-label={`Delete ${folder.name}`} onClick={() => onDelete(folder)}><Trash2 size={14} /></button>}
+        {isSuperadmin && <button type="button" className="manager-folder-delete" disabled={!empty} title={empty ? `Delete ${folder.name}` : 'Delete files and subfolders first'} aria-label={`Delete ${folder.name}`} onClick={() => onDelete(folder)}><Trash2 size={16} /></button>}
       </div>
-      {hasChildren && !isCollapsed && <div>{folder.children.map((child) => <FolderBranch key={child.id} folder={child} depth={depth + 1} selectedFolderId={selectedFolderId} collapsedFolders={collapsedFolders} isSuperadmin={isSuperadmin} onSelect={onSelect} onToggle={onToggle} onDelete={onDelete} />)}</div>}
+      {hasChildren && !isCollapsed && <div className="manager-folder-children">{folder.children.map((child) => <FolderBranch key={child.id} folder={child} selectedFolderId={selectedFolderId} collapsedFolders={collapsedFolders} isSuperadmin={isSuperadmin} onSelect={onSelect} onToggle={onToggle} onDelete={onDelete} />)}</div>}
     </div>
   );
 }
