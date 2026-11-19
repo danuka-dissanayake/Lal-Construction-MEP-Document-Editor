@@ -170,10 +170,15 @@
 .manager-auth-card h1 { margin: -7px 0 -6px; color: #27384e; font-size: 22px; font-weight: 750; letter-spacing: -.55px; text-align: center; }
 .manager-auth-card > p { margin: 0 0 2px; color: #7f8996; font-size: 10px; line-height: 1.5; text-align: center; }
 .manager-field { min-width: 0; display: flex; flex-direction: column; gap: 6px; color: #687687; }
-.manager-field > span { color: #7c8795; font-size: 8px; font-weight: 800; letter-spacing: .75px; }
+.manager-field > span, .manager-field > label { color: #7c8795; font-size: 8px; font-weight: 800; letter-spacing: .75px; }
 .manager-field input { width: 100%; height: 39px; min-width: 0; padding: 0 11px; border: 1px solid #dfe5eb; border-radius: 7px; outline: none; color: #34445a; background: #fbfcfd; font: inherit; font-size: 11px; }
 .manager-field input:focus { border-color: #8eacc9; box-shadow: 0 0 0 3px rgba(50,110,181,.1); background: #fff; }
 .manager-field input[readonly] { color: #6b7785; background: #f1f4f7; }
+.manager-password-control { position: relative; display: flex; align-items: center; }
+.manager-password-control input { padding-right: 43px; }
+.manager-password-toggle { position: absolute; top: 50%; right: 5px; width: 32px; height: 32px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 6px; color: #708096; background: transparent; cursor: pointer; }
+.manager-password-toggle:hover { color: #2f6fae; background: #eef4fa; }
+.manager-password-toggle:focus-visible { outline: 2px solid #3778ba; outline-offset: 1px; }
 .manager-auth-card .manager-primary-button { width: 100%; min-height: 41px; margin-top: 2px; font-size: 11px; }
 .manager-auth-card .manager-text-button { align-self: center; padding: 5px 8px; border: 0; color: #64758a; background: transparent; font: inherit; font-size: 10px; cursor: pointer; }
 .manager-auth-card .manager-text-button:hover { color: var(--manager-blue); text-decoration: underline; }
@@ -469,8 +474,10 @@
 .manager-auth-card h1 { font-size: 28px; }
 .manager-auth-card > p { font-size: 15px; }
 .manager-field { gap: 8px; }
-.manager-field > span { font-size: 12px; }
+.manager-field > span, .manager-field > label { font-size: 12px; }
 .manager-field input { height: 48px; padding: 0 14px; border-radius: 9px; font-size: 15px; }
+.manager-password-control input { padding-right: 48px; }
+.manager-password-toggle { right: 7px; width: 36px; height: 36px; }
 .manager-auth-card .manager-primary-button { min-height: 50px; font-size: 15px; }
 .manager-auth-card .manager-text-button { font-size: 14px; }
 .manager-form-footnote { font-size: 12px !important; }
@@ -551,7 +558,7 @@
   .manager-auth-card { width: 100%; gap: 15px; padding: 27px 22px 24px; }
   .manager-auth-card h1 { font-size: 24px; }
   .manager-auth-card > p { font-size: 14px; }
-  .manager-field > span { font-size: 11px; }
+  .manager-field > span, .manager-field > label { font-size: 11px; }
   .manager-field input { height: 48px; font-size: 16px; }
   .manager-form-footnote { font-size: 11px !important; }
   .manager-admin-panel { width: 100%; max-height: 94dvh; gap: 15px; padding: 18px; }

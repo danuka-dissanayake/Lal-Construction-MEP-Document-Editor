@@ -6,6 +6,7 @@ import {
   ChevronRight,
   Copy,
   Eye,
+  EyeOff,
   FileText,
   Folder,
   FolderOpen,
@@ -37,7 +38,10 @@ export function PdfManagerApp() {
   const [setupStatus, setSetupStatus] = useState(null);
   const [token, setToken] = useState('');
   const [user, setUser] = useState(null);
-  const [passwordFieldsReady, setPasswordFieldsReady] = useState(false);
+  const [temporaryPasswordReady, setTemporaryPasswordReady] = useState(false);
+  const [newPasswordReady, setNewPasswordReady] = useState(false);
+  const [showTemporaryPassword, setShowTemporaryPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [pageError, setPageError] = useState('');
   const [toast, setToast] = useState('');
   const [selectedFolderId, setSelectedFolderId] = useState(null);
@@ -165,7 +169,12 @@ export function PdfManagerApp() {
     setToken(response.token);
     setUser(response.user);
     setPageError('');
-    if (response.user.mustChangePassword) setPasswordFieldsReady(false);
+    if (response.user.mustChangePassword) {
+      setTemporaryPasswordReady(false);
+      setNewPasswordReady(false);
+      setShowTemporaryPassword(false);
+      setShowNewPassword(false);
+    }
     setScreen(response.user.mustChangePassword ? 'change-password' : 'workspace');
   }, []);
 
@@ -211,8 +220,8 @@ export function PdfManagerApp() {
       const response = await protectedRequest('/change-password', {
         method: 'POST',
         body: {
-          currentPassword: form.get('currentPassword'),
-          newPassword: form.get('newPassword'),
+          currentPassword: form.get('adminTemporaryPassphrase'),
+          newPassword: form.get('adminChosenPassphrase'),
         },
       });
       acceptSession(response);
@@ -496,8 +505,24 @@ export function PdfManagerApp() {
           <span className="manager-auth-eyebrow">ACCOUNT SECURITY</span>
           <h1>Choose a new password</h1>
           <p>Your temporary password must be replaced before you can continue.</p>
-          <label className="manager-field"><span>TEMPORARY PASSWORD</span><input name="currentPassword" type="password" autoComplete="off" readOnly={!passwordFieldsReady} onFocus={() => setPasswordFieldsReady(true)} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" required /></label>
-          <label className="manager-field"><span>NEW PASSWORD</span><input name="newPassword" type="password" autoComplete="off" readOnly={!passwordFieldsReady} onFocus={() => setPasswordFieldsReady(true)} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" minLength={12} maxLength={128} required /></label>
+          <div className="manager-field">
+            <label htmlFor="admin-temporary-passphrase">TEMPORARY PASSWORD</label>
+            <div className="manager-password-control">
+              <input id="admin-temporary-passphrase" name="adminTemporaryPassphrase" type={showTemporaryPassword ? 'text' : 'password'} autoComplete="off" readOnly={!temporaryPasswordReady} onFocus={() => setTemporaryPasswordReady(true)} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" autoCapitalize="none" spellCheck="false" required />
+              <button type="button" className="manager-password-toggle" onMouseDown={(event) => event.preventDefault()} onClick={() => setShowTemporaryPassword((show) => !show)} aria-label={showTemporaryPassword ? 'Hide temporary password' : 'Show temporary password'} aria-pressed={showTemporaryPassword} title={showTemporaryPassword ? 'Hide password' : 'Show password'}>
+                {showTemporaryPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+          <div className="manager-field">
+            <label htmlFor="admin-new-passphrase">NEW PASSWORD</label>
+            <div className="manager-password-control">
+              <input id="admin-new-passphrase" name="adminChosenPassphrase" type={showNewPassword ? 'text' : 'password'} autoComplete="off" readOnly={!newPasswordReady} onFocus={() => setNewPasswordReady(true)} data-1p-ignore="true" data-lpignore="true" data-bwignore="true" autoCapitalize="none" spellCheck="false" minLength={12} maxLength={128} required />
+              <button type="button" className="manager-password-toggle" onMouseDown={(event) => event.preventDefault()} onClick={() => setShowNewPassword((show) => !show)} aria-label={showNewPassword ? 'Hide new password' : 'Show new password'} aria-pressed={showNewPassword} title={showNewPassword ? 'Hide password' : 'Show password'}>
+                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
           {pageError && <ErrorNotice>{pageError}</ErrorNotice>}
           <button className="manager-primary-button" type="submit">Update password</button>
           <button className="manager-text-button" type="button" onClick={() => signOut()}>Sign out</button>
